@@ -1,0 +1,7 @@
+---
+import Layout from "../layouts/Layout.astro";
+let id = Astro.params.id;
+let nextLinkId = parseInt(id) + 1;
+---
+
+<Layout linkId={`${ nextLinkId }`} text={`You are at ${ id }.`} />
