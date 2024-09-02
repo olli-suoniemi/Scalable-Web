@@ -1,11 +1,67 @@
 <script>
   import { userUuid, userPoints } from "../stores/stores.js";
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
 
   let submission = "";
   let submissions = [];
   let showSubmissions = false;
   let isLoading = false;
+
+  // WebSocket connection
+  let ws;
+
+  const setupWebSocket = () => {
+    const wsUrl = `ws://localhost:7788/ws?userID=${$userUuid}`;
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log("WebSocket connection opened");
+    };
+
+    ws.onmessage = (event) => {
+      // update local submissions data to latest from database
+      getSubmissions()
+      
+      const data = JSON.parse(event.data);
+      console.log("Received message from WebSocket");
+
+      console.log("Correct", data.correct)
+
+      // Update submissions with the received data
+      submissions = submissions.map(sub => 
+        sub.id === data.id ? { ...sub, ...data } : sub
+      );
+      
+      console.log("received submission", data)
+      console.log("submissions", submissions)
+      
+      isLoading = false; // Set loading state to false
+      submission = "";
+      showSubmissions = true
+
+      if (data.correct) {
+        userPoints.update(points => points + 100);
+
+        // Get a new assignment to replace the completed one.
+        assignmentPromise = getAssignment()
+      }
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket connection closed");
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+  };
+
+  // Cleanup WebSocket connection on component destroy
+  onDestroy(() => {
+    if (ws) {
+      ws.close();
+    }
+  });
 
   const getUserPoints = async () => {
     const response = await fetch("/api/points", {
@@ -21,6 +77,8 @@
 
   onMount(() => {
     getUserPoints();
+    setupWebSocket(); // Set up WebSocket when component mounts
+    getSubmissions();
   });
 
   const getAssignment = async () => {
@@ -44,14 +102,15 @@
       },
       body: JSON.stringify({ user: $userUuid }),
     });
-    return await response.json();
+    submissions = await response.json();
   };
 
   const addSubmission = async () => {
     if (submission.length == 0) {
         return;
     }
-
+    
+    // After submission, update UI to reflect that grading is in progress
     isLoading = true; // Set loading state to true
 
     // Await the assignmentPromise to get the resolved value
@@ -64,7 +123,7 @@
       id: assignment[0].id
     };
 
-    // send the submission to the grader
+    // send the submission to the grader and receive ID of the created submission as a response
     const response = await fetch("/api/grade", {
       method: "POST",
       headers: {
@@ -73,34 +132,23 @@
       body: JSON.stringify(newSubmission),
     });
 
-    const result = await response.json();
+    const result = await response.json()
 
-    submission = "";
+    console.log("ID IS:", result)
 
-    isLoading = false; // Set loading state to false
+    console.log("IS NUMBER", !isNaN(result))
 
-    // Update user points if the submission is correct
-
-    if (result) {
-      userPoints.update(points => points + 100);
-      // get new assignment for the user
-      assignmentPromise = getAssignment();
-      // update user points
-      getUserPoints();
+    // Check that if the result is not number. If not we have
+    // some kind of error in the API or the submission wasn't recognized.
+    if (isNaN(result)) { 
+      console.error("No ID was returned from API") 
     }
-
-    // get all submissions to show the just submitted assignment
-    submissions = await getSubmissions();
-
-    // show the submissions
-    showSubmissions = true;
-
   };
 
   const toggleShowSubmissions = async () => {
     showSubmissions = !showSubmissions;
     if (showSubmissions) {
-      submissions = await getSubmissions();
+      getSubmissions();
       console.log(submissions);
     }
   };
@@ -124,6 +172,37 @@
     // Format each line with a bullet point
     const formattedFeedback = lines.map(line => `${line}`).join('\n');
     return formattedFeedback;
+  };
+
+  const deleteSubmission = async (submissionId) => {
+    const confirmed = confirm("Are you sure you want to delete this submission?");
+    if (!confirmed) return;
+
+    const response = await fetch(`/api/delete-submission/${submissionId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ user: $userUuid }),
+    });
+
+    if (response.ok) {
+      // Find the submission details
+      const submission = submissions.find(sub => sub.id == submissionId)
+
+      // Dedudct 100 points from the user if the deleted submission was correct
+      if (submission.correct) {
+        userPoints.update(points => points - 100);
+
+        // Get a new assignment to replace the deleted one.
+        // Basically this should return the user the previous assignment he did or null if there isn't any previous ones
+        assignmentPromise = getAssignment()
+      }
+      
+      // Remove the deleted submission from the local submissions list
+      submissions = submissions.filter(sub => sub.id !== submissionId);
+    } else if (response.status === 403) {
+      alert("You can only delete your most recent submission.");
+    } else {
+      alert("Failed to delete submission. Please try again.");
+    }
   };
 </script>
 
@@ -213,27 +292,39 @@
   {#if showSubmissions}
   <div class="mt-8">
     <h2 class="font-extrabold text-2xl mb-4">Previous Submissions</h2>
-    <div class="space-y-4">
-      {#each submissions as submission}
-      <div class="border border-gray-200 p-4 rounded-md shadow {submission.correct ? 'bg-green-100' : 'bg-red-100'}">
-        <p class="text-sm font-medium">Programming Task ID: {submission.programming_assignment_id}</p>
-        <p class="text-sm font-medium">Submission Code:</p>
-        <pre class="bg-gray-100 p-2 rounded">{submission.code}</pre>
-        <p class="text-sm font-medium">Status: {submission.status}</p>
-        {#if submission.grader_feedback}
-        <p class="text-sm font-medium">Grader Feedback:</p>
-        <pre class="bg-gray-100 p-2 rounded">{formatGraderFeedback(submission.grader_feedback)}</pre>
-        {/if}
-        <p class="text-sm font-medium">Correct: {submission.correct ? 'Yes' : 'No'}</p>
-        <p class="text-sm font-medium">Submitted: {formatDate(submission.last_updated)}</p>
+    
+    {#if submissions.length === 0}
+      <p class="text-gray-500">No submissions yet</p>
+    {:else}
+      <div class="space-y-4">
+        {#each submissions as submission, index}
+          <div class="border border-gray-200 p-4 rounded-md shadow {submission.correct ? 'bg-green-100' : 'bg-red-100'}">
+            <p class="text-sm font-medium">Programming Task ID: {submission.programming_assignment_id}</p>
+            <p class="text-sm font-medium">Submission Code:</p>
+            <pre class="bg-gray-100 p-2 rounded">{submission.code}</pre>
+            <p class="text-sm font-medium">Status: {submission.status}</p>
+            {#if submission.grader_feedback}
+              <p class="text-sm font-medium">Grader Feedback:</p>
+              <pre class="bg-gray-100 p-2 rounded">{formatGraderFeedback(submission.grader_feedback)}</pre>
+            {/if}
+            <p class="text-sm font-medium">Correct: {submission.correct ? 'Yes' : 'No'}</p>
+            <p class="text-sm font-medium">Submitted: {formatDate(submission.last_updated)}</p>
+            
+            {#if index === 0} <!-- Show delete button only for the first submission -->
+              <button
+                class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded mt-2"
+                on:click={() => deleteSubmission(submission.id)}
+              >
+                Delete Submission
+              </button>
+            {/if}
+          </div>
+        {/each}
       </div>
-      {/each}
-    </div>
+    {/if}
   </div>
 {/if}
 
-  
-  
-</div>
 
+</div>
 

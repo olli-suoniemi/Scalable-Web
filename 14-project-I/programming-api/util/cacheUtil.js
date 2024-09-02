@@ -31,4 +31,5 @@ const cacheMethodCalls = (object, methodsToFlushCacheWith = []) => {
   return new Proxy(object, handler);
 };
 
+
 export { cacheMethodCalls };

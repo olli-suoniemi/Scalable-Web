@@ -1,8 +1,110 @@
 import * as assignmentService from "./services/assignmentService.js";
 import { cacheMethodCalls } from "./util/cacheUtil.js";
+import { createClient } from "npm:redis@4.6.4";
+
+// Redis Publisher Client
+const publisherClient = createClient({
+  url: "redis://redis:6379",
+  pingInterval: 1000,
+});
+
+await publisherClient.connect();
 
 // cache everything, and flush the cache when the addSubmission method is called
-const cachedAssignmentService = cacheMethodCalls(assignmentService, ["addSubmission"]);
+const cachedAssignmentService = cacheMethodCalls(assignmentService, ["addSubmission", "deleteSubmissionById", "updateSubmissionStatus", ]);
+
+const handlePostAssignment = async (request) => {
+  const requestData = await request.json();
+  const userID = requestData["user"]
+  const submittedCode = requestData["code"]
+  const testCode = requestData["testCode"]
+  const programmingAssignmentID = requestData["id"]
+  
+  const data = {
+    testCode: testCode,
+    code: submittedCode,
+    userID, 
+    programmingAssignmentID
+  };
+  
+  // Check if there is already a matcing submission by the user
+  // If yes -> Do not send the submission to the grader, just send it to the database but copy the values for 
+  // submission_status, grader_feedback, and correct from the matching submission
+
+  // Else -> Send the submission to the grader and add to the database
+
+  const oldSubmissions = Response.json(await cachedAssignmentService.getSubmissionsByUser(userID));
+  const oldSubmissionsJson = await oldSubmissions.json();
+
+  const matchingSubmission = oldSubmissionsJson.find(submission => 
+    submission.programming_assignment_id === programmingAssignmentID && 
+    submission.code === submittedCode
+  );
+
+  if (matchingSubmission) {
+    console.log("Matching existing submission was found.")
+    // There is already a matching submission so we update only the lastUpdated field
+    
+    // Copy status, feedback and correct from existing submission.
+    // So basically we only update the lastUpdated field to the database
+    const submissionData = {
+      status: 'processed',
+      graderFeedback: matchingSubmission.grader_feedback,
+      correct: matchingSubmission.correct,
+      id: matchingSubmission.id,
+      programmingAssignmentID
+    }
+    
+    console.log("Updating existing submission to the database...")
+    await cachedAssignmentService.updateSubmissionStatus(submissionData);
+
+    // Publish the existing result to Redis using the publisher client
+    try {
+      const resultChannel = `grading_result_${userID}`;
+      const publishResult = await publisherClient.publish(resultChannel, JSON.stringify(submissionData));
+    
+      console.log(`Published existing grading result to ${resultChannel}, Number of clients received: ${publishResult}`);    
+      
+      // Return the ID of the updated submission
+      return Response.json(matchingSubmission.id)  
+
+    } catch (publishError) {
+      console.error("Error publishing to Redis:", publishError.message || publishError);
+    }
+  } else {
+    // The result will be handled asynchronously by the grader worker
+    const submissionData = {
+      programmingAssignmentID,
+      code: submittedCode,
+      userID,
+      gradingStatus: 'pending', // Mark as processing
+      graderFeedback: 'Submission is waiting to be graded...',
+      correct: false,
+      lastUpdated: new Date()
+    };
+
+    console.log("Adding a new submission to the database.")
+    // Add the submission to the database
+    const result = await cachedAssignmentService.addSubmission(submissionData)
+
+    if (result && result.length > 0) {
+
+      console.log("Addition to the database was succesfull.")
+      const idOfTheSubmission = result[0].id
+      
+      data.id = idOfTheSubmission
+      
+      // Publish submission to Redis submission queue to wait for the grading
+      await publisherClient.publish('submissions', JSON.stringify(data));
+  
+      // Return the ID of the created submission
+      return Response.json(idOfTheSubmission);
+    }
+    else {
+      console.error("No submission ID returned.");
+    }
+  }
+};
 
 const handleGetNextAssignment = async (request) => {
   const requestData = await request.json();
@@ -24,53 +126,6 @@ const handleGetSubmissions = async (request) => {
   return response;
 };
 
-const handlePostAssignment = async (request) => {
-  const requestData = await request.json();
-  const userID = requestData["user"]
-  const submittedCode = requestData["code"]
-  const testCode = requestData["testCode"]
-  const programmingAssignmentID = requestData["id"]
-  let submissionIsCorrect = false
-  
-  const data = {
-    testCode: testCode,
-    code: submittedCode,
-  };
-
-  // Send submission to grader
-  const response = await fetch("http://grader-api:7000/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-
-  // Send submission and the feedback to the database
-  const result = await response.json();
-
-  // Check if the submission was OK or FAILED
-  if (result["result"].includes("OK")) {
-    submissionIsCorrect = true
-  } else {
-    submissionIsCorrect = false
-  } 
-
-  const submissionData = {
-    programmingAssignmentID: programmingAssignmentID,
-    code: submittedCode,
-    userID: userID,
-    gradingStatus: 'processed',
-    graderFeedback: result["result"] === "" ? "No feedback from grader. That means your code has an infinite loop" : result["result"],
-    correct: submissionIsCorrect,
-    lastUpdated: new Date()
-  }
-  await cachedAssignmentService.addSubmission(submissionData);
-
-  return Response.json(submissionIsCorrect);
-
-};
-
 const handleGetPoints = async (request) => {
   const requestData = await request.json();
   const userID = requestData["user"]
@@ -80,6 +135,52 @@ const handleGetPoints = async (request) => {
 
   return response;
 }
+
+const handleGetSubmissionStatus = async (request, { pathname }) => {
+  const submissionId = pathname.groups.id;
+  
+  // Fetch submission status by ID from the database
+  const submissionStatus = await cachedAssignmentService.getSubmissionStatusById(submissionId);
+  
+  if (submissionStatus) {
+    return new Response(JSON.stringify(submissionStatus), { status: 200 });
+  } else {
+    return new Response("Submission not found", { status: 404 });
+  }
+};
+
+const handleDeleteSubmission = async (request, { pathname }) => {
+  const submissionId = pathname.groups.id;
+  const { user } = await request.json(); // Extract the user ID from the request body
+
+  // Fetch the submission by ID
+  const submission = await cachedAssignmentService.getSubmissionById(submissionId);
+
+  if (!submission) {
+      return new Response("Submission not found", { status: 404 });
+  }
+
+  // Verify if the submission belongs to the user making the request
+  if (submission[0].user_uuid !== user) {
+      return new Response("You are not authorized to delete this submission.", { status: 403 });
+  }
+
+  const mostRecentSubmission = await cachedAssignmentService.getMostRecentSubmissionForUser(user);
+
+  // Check if the submission being deleted is the most recent one
+  if (String(mostRecentSubmission[0].id) !== String(submissionId)) {
+      return new Response("You can only delete your most recent submission.", { status: 403 });
+  }
+
+  // Proceed to delete the submission
+  const deletionSuccess = await cachedAssignmentService.deleteSubmissionById(submissionId);
+
+  if (deletionSuccess) {
+    return new Response("Submission deleted successfully", { status: 200 });
+  } else {
+    return new Response("Submission not found", { status: 404 });
+  }
+};
 
 const urlMapping = [
     {
@@ -101,6 +202,16 @@ const urlMapping = [
       method: "POST",
       pattern: new URLPattern({ pathname: "/points" }),
       fn: handleGetPoints,
+    },
+    {
+      method: "GET",
+      pattern: new URLPattern({ pathname: "/submission-status/:id" }),
+      fn: handleGetSubmissionStatus,
+    },
+    {
+      method: "DELETE",
+      pattern: new URLPattern({ pathname: "/delete-submission/:id" }),
+      fn: handleDeleteSubmission,
     },
 ];
 

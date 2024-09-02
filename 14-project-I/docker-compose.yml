@@ -47,12 +47,23 @@ services:
     build: grader-api
     image: grader-api
     restart: "no"
+    env_file:
+        - project.env
+    depends_on:
+      - programming-api
     volumes:
       - ./grader-api/:/app
       - ./app-cache/:/app-cache
       - "/var/run/docker.sock:/var/run/docker.sock"
     expose:
       - 7000
+
+  websocket:
+    build: ./websocket
+    ports:
+      - "7788:7788"
+    depends_on:
+      - redis
 
   database:
     container_name: database-server

@@ -2,11 +2,6 @@ import { postgres } from "../deps.js";
 
 const sql = postgres({});
 
-const getSubmissions = async () => {
-  const result = await sql`SELECT * FROM programming_assignment_submissions;`;
-  return result
-}
-
 const getSubmissionsByUser = async (id) => {
   const result = await sql`
     SELECT * FROM programming_assignment_submissions WHERE user_uuid = ${id}
@@ -86,11 +81,13 @@ const addSubmission = async (submission) => {
   } = submission;
 
   try {
-    await sql`
+    const res = await sql`
       INSERT INTO programming_assignment_submissions (
         programming_assignment_id, code, user_uuid, status, grader_feedback, correct, last_updated
       ) VALUES (${programmingAssignmentID}, ${code}, ${userID}, ${gradingStatus}, ${graderFeedback}, ${correct}, ${lastUpdated})
+       RETURNING ID
     `;
+    return res
   } catch (err) {
     console.error('Error adding new submission:', err);
     throw err;
@@ -110,4 +107,101 @@ const getCorrectSubmissions = async (id) => {
   return result
 };
 
-export { getNextAssignment, getAssignments, addSubmission, getSubmissionsByUser, getCorrectSubmissions };
+// Method to fetch the status of a specific submission
+const getSubmissionStatusById = async (submissionId) => {
+  const result = await sql`
+    SELECT 
+      status, grader_feedback, correct, last_updated 
+    FROM 
+      programming_assignment_submissions 
+    WHERE 
+      id = ${submissionId};
+  `;
+  
+  return result.length > 0 ? result[0] : null;
+};
+
+const deleteSubmissionById = async (submissionId, userId) => {
+  console.log(`Attempting to delete submission with ID: ${submissionId}`);
+
+  try {
+    // Convert submissionId to an integer if necessary
+    const result = await sql`DELETE FROM programming_assignment_submissions WHERE id = ${submissionId};`;
+
+    console.log("DELETING....");
+    console.log(`Result count: ${result.count}`);
+
+    // Check if any rows were affected
+    if (result.count > 0) {
+      // Return a success response if rows were deleted
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    } else {
+      // Return a not found response if no rows were deleted
+      return new Response(JSON.stringify({ success: false, message: "No rows found to delete" }), { status: 404 });
+    }
+  } catch (error) {
+    console.error("Error executing DELETE query:", error);
+    return new Response(JSON.stringify({ success: false, message: "Internal server error" }), { status: 500 });
+  }
+};
+
+// Method to update the status of a submission
+const updateSubmissionStatus = async (sumbissionData) => {
+  const { status, graderFeedback, correct, id } = sumbissionData;
+
+  try {
+    const result = await sql`
+      UPDATE programming_assignment_submissions 
+      SET 
+        status = ${status}, 
+        grader_feedback = ${graderFeedback}, 
+        correct = ${correct}, 
+        last_updated = NOW()
+      WHERE 
+        id = ${id};
+    `;
+
+    console.log("Submission update result:", result.count > 0 ? 'Update successful' : 'Update failed');
+  
+  } catch (err) {
+    console.error("Error updating submission status:", err);
+    throw err;
+  }
+};
+
+const getSubmissionById = async (id) => {
+  try {
+    const result = await sql`
+      SELECT * FROM programming_assignment_submissions WHERE id = ${id};
+    `;
+    return result
+  } catch (err) {
+    console.error(`Error getting submission by ID: ${id}. Error: ${err}`);
+    throw err;
+  }
+}
+
+const getMostRecentSubmissionForUser = async (id) => {
+  try {
+    const result = await sql`
+      SELECT * FROM programming_assignment_submissions WHERE user_uuid = ${id} ORDER BY last_updated DESC LIMIT 1;
+    `;
+    return result
+  } catch (err) {
+    console.error(`Error getting most recent submission for user: ${id}. Error: ${err}`);
+    throw err;
+  }
+}
+
+export {
+  getNextAssignment,
+  getAssignments,
+  addSubmission,
+  getSubmissionsByUser,
+  getCorrectSubmissions,
+  getSubmissionStatusById,
+  deleteSubmissionById,
+  updateSubmissionStatus,
+  getSubmissionById,
+  getMostRecentSubmissionForUser
+};
