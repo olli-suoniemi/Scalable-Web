@@ -57,6 +57,8 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock"
     expose:
       - 7000
+    deploy:
+      replicas: 2
 
   websocket:
     build: ./websocket
@@ -64,6 +66,8 @@ services:
       - "7788:7788"
     depends_on:
       - redis
+    volumes:
+      - ./websocket/:/app  
 
   database:
     container_name: database-server

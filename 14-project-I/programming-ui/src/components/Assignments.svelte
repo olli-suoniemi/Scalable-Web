@@ -19,25 +19,34 @@
     };
 
     ws.onmessage = (event) => {
-      // update local submissions data to latest from database
-      getSubmissions()
+      getSubmissions();
+      submission = "";
+      showSubmissions = true
       
       const data = JSON.parse(event.data);
       console.log("Received message from WebSocket");
 
       console.log("Correct", data.correct)
 
-      // Update submissions with the received data
-      submissions = submissions.map(sub => 
-        sub.id === data.id ? { ...sub, ...data } : sub
-      );
+      // Check if the submission is already in the list
+      const existingSubmissionIndex = submissions.findIndex(sub => sub.id === data.id);
+
+      console.log("existingSubmissionIndex", existingSubmissionIndex)
+
+      if (existingSubmissionIndex !== -1) {
+        // Update the existing submission
+        submissions = submissions.map(sub => 
+          sub.id === data.id ? { ...sub, ...data } : sub
+        );
+      } else {
+        // Add the new submission to the list
+        submissions = [...submissions, data];
+      }
       
       console.log("received submission", data)
       console.log("submissions", submissions)
       
       isLoading = false; // Set loading state to false
-      submission = "";
-      showSubmissions = true
 
       if (data.correct) {
         userPoints.update(points => points + 100);
@@ -110,11 +119,17 @@
         return;
     }
     
-    // After submission, update UI to reflect that grading is in progress
-    isLoading = true; // Set loading state to true
-
     // Await the assignmentPromise to get the resolved value
     const assignment = await assignmentPromise;
+
+    if (!assignment) {  // There is no assignment -> all assignments are already done
+      alert("You have done all the assignments")
+      submission = "";
+      return;
+    }
+
+    // After submission, update UI to reflect that grading is in progress
+    isLoading = true; // Set loading state to true
 
     const newSubmission = { 
       user: $userUuid,
@@ -123,25 +138,46 @@
       id: assignment[0].id
     };
 
-    // send the submission to the grader and receive ID of the created submission as a response
-    const response = await fetch("/api/grade", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(newSubmission),
-    });
+    try {
+      // send the submission to the grader and receive ID of the created submission as a response
+      const response = await fetch("/api/grade", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newSubmission),
+      });
 
-    const result = await response.json()
+      // Check if the response status is not 2xx (success)
+      if (!response.ok) {
+        isLoading = false;
+        const errorData = await response.json(); // Parse the error response body
+        console.error("Error:", errorData.error);
 
-    console.log("ID IS:", result)
+        if (response.status === 403) {
+          alert(errorData.error); // Alert the user with the error message
+        } else {
+          alert("An error occurred: " + errorData.error);
+        }
 
-    console.log("IS NUMBER", !isNaN(result))
+        // Stop further processing as the request was not successful
+        return;
+      }
 
-    // Check that if the result is not number. If not we have
-    // some kind of error in the API or the submission wasn't recognized.
-    if (isNaN(result)) { 
-      console.error("No ID was returned from API") 
+      // If the response was successful, continue business as usual
+      const result = await response.json()
+
+      console.log("ID IS:", result)
+
+      console.log("IS NUMBER", !isNaN(result))
+
+      // Check that if the result is not number. If not we have
+      // some kind of error in the API or the submission wasn't recognized.
+      if (isNaN(result)) { 
+        console.error("No ID was returned from API") 
+      }
+    } catch (error) {
+      console.log(error)
     }
   };
 

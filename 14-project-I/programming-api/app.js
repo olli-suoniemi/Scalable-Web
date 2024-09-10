@@ -26,8 +26,18 @@ const handlePostAssignment = async (request) => {
     userID, 
     programmingAssignmentID
   };
-  
+
+  // Check if there's already a submission in grading for this user
+  const pendingSubmission = Response.json(await cachedAssignmentService.getPendingSubmission(userID));
+  const pendingSubmissionJson = await pendingSubmission.json()
+
+  // Convert to number as the type of the return value from assignmentService is a string
+  if (Number(pendingSubmissionJson) > 0) {
+    return new Response(JSON.stringify({ error: "You already have a submission in grading." }), { status: 403 });
+  }
+
   // Check if there is already a matcing submission by the user
+
   // If yes -> Do not send the submission to the grader, just send it to the database but copy the values for 
   // submission_status, grader_feedback, and correct from the matching submission
 
@@ -55,7 +65,7 @@ const handlePostAssignment = async (request) => {
       programmingAssignmentID
     }
     
-    console.log("Updating existing submission to the database...")
+    console.log(`Updating existing submission with ID ${matchingSubmission.id} to the database...`)
     await cachedAssignmentService.updateSubmissionStatus(submissionData);
 
     // Publish the existing result to Redis using the publisher client
@@ -63,7 +73,7 @@ const handlePostAssignment = async (request) => {
       const resultChannel = `grading_result_${userID}`;
       const publishResult = await publisherClient.publish(resultChannel, JSON.stringify(submissionData));
     
-      console.log(`Published existing grading result to ${resultChannel}, Number of clients received: ${publishResult}`);    
+      console.log(`Published existing grading result of ID ${matchingSubmission.id} to ${resultChannel}, Number of clients received: ${publishResult}`);    
       
       // Return the ID of the updated submission
       return Response.json(matchingSubmission.id)  
@@ -83,7 +93,7 @@ const handlePostAssignment = async (request) => {
       lastUpdated: new Date()
     };
 
-    console.log("Adding a new submission to the database.")
+    console.log(`Adding a new submission of user ${userID} to the database.`)
     // Add the submission to the database
     const result = await cachedAssignmentService.addSubmission(submissionData)
 

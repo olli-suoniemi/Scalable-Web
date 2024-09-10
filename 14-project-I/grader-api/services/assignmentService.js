@@ -15,11 +15,14 @@ const updateSubmissionStatus = async (sumbissionData) => {
         correct = ${correct}, 
         last_updated = NOW()
       WHERE 
-        id = ${id};
+        id = ${id}
+      RETURNING last_updated;
     `;
 
     console.log("Submission update result:", result.count > 0 ? 'Update successful' : 'Update failed');
-  
+
+    return result.count > 0 ? result[0].last_updated : false
+      
   } catch (err) {
     console.error("Error updating submission status:", err);
     throw err;

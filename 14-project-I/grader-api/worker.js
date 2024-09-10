@@ -2,6 +2,8 @@ import { createClient } from "npm:redis@4.6.4";
 import { grade } from "./services/gradingService.js";
 import { updateSubmissionStatus } from "./services/assignmentService.js";
 
+const SERVER_ID = crypto.randomUUID();
+
 // Set up Redis clients
 const redisSubscriber = createClient({
   url: "redis://redis:6379",
@@ -21,7 +23,7 @@ redisSubscriber.subscribe('submissions', async (message) => {
   try {
     const submissionData = JSON.parse(message);
 
-    console.log("Processing submission:", submissionData);
+    console.log(`Grader ${SERVER_ID} is processing submission with ID ${submissionData.id} from user ${submissionData.userID}`);
 
     // Extract the code and test code from the submission data
     const { code, testCode, userID, programmingAssignmentID, id } = submissionData;
@@ -37,7 +39,7 @@ redisSubscriber.subscribe('submissions', async (message) => {
     const graderFeedback = parsedResult === "" ? "No feedback from grader. That means your code has an infinite loop" : parsedResult;
 
     // Update the submission in the database
-    await updateSubmissionStatus({
+    const last_updated = await updateSubmissionStatus({
       status: 'processed',
       graderFeedback: graderFeedback,
       correct: correct,
@@ -56,7 +58,10 @@ redisSubscriber.subscribe('submissions', async (message) => {
         programmingAssignmentID,
         graderFeedback,
         correct,
-        status: 'processed'
+        status: 'processed',
+        last_updated,
+        code,
+        user_uuid: userID
       }));
     
       console.log(`Published grading result to ${resultChannel}, Number of clients received: ${publishResult}`);
@@ -68,4 +73,4 @@ redisSubscriber.subscribe('submissions', async (message) => {
   }
 });
 
-console.log("Grader API is running and waiting for submissions...");
+console.log(`Grader API ${SERVER_ID} is running and waiting for submissions...`);

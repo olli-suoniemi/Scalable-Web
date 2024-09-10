@@ -193,6 +193,18 @@ const getMostRecentSubmissionForUser = async (id) => {
   }
 }
 
+const getPendingSubmission = async (id) => {
+  try {
+    const result = await sql`
+      SELECT * FROM programming_assignment_submissions WHERE user_uuid = ${id} AND status = 'pending';
+    `;
+    return result.count
+  } catch (err) {
+    console.error(`Error getting existing pending submission for user: ${id}. Error: ${err}`);
+    throw err;
+  }
+}
+
 export {
   getNextAssignment,
   getAssignments,
@@ -203,5 +215,6 @@ export {
   deleteSubmissionById,
   updateSubmissionStatus,
   getSubmissionById,
-  getMostRecentSubmissionForUser
+  getMostRecentSubmissionForUser,
+  getPendingSubmission
 };

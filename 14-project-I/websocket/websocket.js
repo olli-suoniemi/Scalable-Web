@@ -26,7 +26,8 @@ const handleRequest = async (request) => {
       if (!subscriptions.has(userID)) {
         console.log(`Subscribing to Redis channel: ${channel}`);
         redisClient.subscribe(channel, (message) => {
-          console.log(`Received message from Redis channel ${channel}:`, message);
+          const parsedMessage = JSON.parse(message)
+          console.log(`Received message from Redis channel ${channel}. ID: ${parsedMessage.id}. Status: ${parsedMessage.status}.`);
           socket.send(message);
         });
         subscriptions.set(userID, channel);
