@@ -15,7 +15,6 @@ const cacheMethodCalls = (object, methodsToFlushCacheWith = []) => {
           try {
             // Check cache state before flushing
             const cacheKeys = await redis.keys('*');
-            console.log('Cache keys before flush:', cacheKeys);
 
             // Delete all keys except 'submissions_stream'
             for (const key of cacheKeys) {
@@ -23,10 +22,6 @@ const cacheMethodCalls = (object, methodsToFlushCacheWith = []) => {
                 await redis.del(key);
               }
             }
-
-            // Check cache state after flushing
-            const cacheKeysAfterFlush = await redis.keys('*');
-            console.log('Cache keys after flush:', cacheKeysAfterFlush);
 
           } catch (error) {
             console.error("Error during cache flush:", error.message || error);

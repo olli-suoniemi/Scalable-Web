@@ -175,9 +175,9 @@ processSubmissions();
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
-setInterval(async () => {
-  console.log('Checking for pending submissions older than 5 minutes...');
-  await processPendingSubmissions();
-}, FIVE_MINUTES);
+// setInterval(async () => {
+//   console.log('Checking for pending submissions older than 5 minutes...');
+//   await processPendingSubmissions();
+// }, FIVE_MINUTES);
 
 console.log(`${SERVER_ID} is running and waiting for submissions...`);

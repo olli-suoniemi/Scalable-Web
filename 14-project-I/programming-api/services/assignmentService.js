@@ -3,11 +3,16 @@ import { postgres } from "../deps.js";
 const sql = postgres({});
 
 const getSubmissionsByUser = async (id) => {
-  const result = await sql`
-    SELECT * FROM programming_assignment_submissions WHERE user_uuid = ${id}
-    ORDER BY programming_assignment_id DESC, last_updated DESC;
-  `;
-  return result
+  try {
+    const result = await sql`
+      SELECT * FROM programming_assignment_submissions WHERE user_uuid = ${id}
+      ORDER BY programming_assignment_id DESC, last_updated DESC;
+    `;
+    return result
+    
+  } catch (error) {
+    console.error(`Error while getting submissions by user: ${id}. Error: ${error}`)
+  }
 };
 
 const getNextAssignment = async (user_uuid) => {

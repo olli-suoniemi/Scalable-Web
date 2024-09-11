@@ -86,8 +86,7 @@ services:
       - ./flyway/sql/:/flyway/sql
     env_file:
       - project.env
-    entrypoint: ["/flyway/flyway"]
-    command: ["-connectRetries=60", "-url=jdbc:postgresql://database-server:5432/database", "-user=username", "-password=password", -cleanDisabled=false, "clean", "migrate"]
+    command: -connectRetries=60 -baselineOnMigrate=true migrate
 
   e2e-playwright:
     entrypoint: "/bin/true"
@@ -96,6 +95,13 @@ services:
     network_mode: host
     depends_on:
       - nginx
+      - database
+      - flyway
+      - programming-api
+      - programming-ui
+      - grader-api
+      - websocket
+      - redis
     volumes:
       - ./e2e-playwright/tests:/e2e-playwright/tests
       

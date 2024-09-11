@@ -115,6 +115,7 @@
   };
 
   const addSubmission = async () => {
+    console.log("Adding submission...", submission)
     if (submission.length == 0) {
         return;
     }
@@ -166,10 +167,6 @@
 
       // If the response was successful, continue business as usual
       const result = await response.json()
-
-      console.log("ID IS:", result)
-
-      console.log("IS NUMBER", !isNaN(result))
 
       // Check that if the result is not number. If not we have
       // some kind of error in the API or the submission wasn't recognized.
