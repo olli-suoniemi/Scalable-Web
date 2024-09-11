@@ -1,6 +1,6 @@
 import { createClient } from 'redis';
 import { grade } from './services/gradingService.js';
-import { updateSubmissionStatus } from './services/assignmentService.js';
+import { getPendingSubmissionsOlderThan, updateSubmissionStatus, getTestCodeForAssignment } from './services/assignmentService.js';
 import { randomUUID } from 'crypto'; 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -24,6 +24,25 @@ try {
   if (!err.message.includes('BUSYGROUP')) throw err;
 }
 
+async function flushCacheExceptStream() {
+  try {
+    // Get all cache keys
+    const cacheKeys = await redisClient.keys('*');
+    console.log('Cache keys before flush:', cacheKeys);
+
+    // Loop through cache keys and delete keys except 'submissions_stream'
+    for (const key of cacheKeys) {
+      if (key !== 'submissions_stream') {
+        await redisClient.del(key);
+      }
+    }
+
+    console.log('Cache flush completed, remaining keys:', await redisClient.keys('*'));
+  } catch (error) {
+    console.error("Error during cache flush:", error.message || error);
+  }
+}
+
 async function processSubmissions() {
   while (true) {
     try {
@@ -42,22 +61,27 @@ async function processSubmissions() {
 
           const { userID, programmingAssignmentID, code, testCode, submissionID } = message;
 
-          console.log(`Processing submission for user ${userID}`);
+          console.log(`Processing submission ${id} for user ${userID}`);
 
-          const gradingResult = await grade(code, testCode);
+          const gradingResult = grade(code, testCode);
+
           const correct = gradingResult.includes('OK');
-
           const graderFeedback = gradingResult === '' 
             ? 'No feedback from grader. That means your code has an infinite loop' 
             : gradingResult;
 
-          const lastUpdated = await updateSubmissionStatus({
+          // Update the submission status
+          await updateSubmissionStatus({
             status: 'processed',
             graderFeedback,
             correct,
             id: submissionID
           });
 
+          // Flush the cache but remain submissions_stream
+          await flushCacheExceptStream();
+
+          // Notify the user via Redis that the submission has been processed
           const resultChannel = `grading_result_${userID}`;
           const publishResult = await redisPublisher.publish(resultChannel, JSON.stringify({
             id: submissionID,
@@ -65,7 +89,6 @@ async function processSubmissions() {
             graderFeedback,
             correct,
             status: 'processed',
-            lastUpdated,
             code,
             userID
           }));
@@ -91,6 +114,70 @@ async function processSubmissions() {
   }
 }
 
+const processPendingSubmissions = async () => {
+  const pendingSubmissions = await getPendingSubmissionsOlderThan(5); // Fetch submissions older than 5 minutes
+
+  if (pendingSubmissions.length > 0) {
+    for (const submission of pendingSubmissions) {
+
+      // Destruct to variables
+      const { id, user_uuid, programming_assignment_id, code } = submission;
+
+      try {
+        // Get test code
+        const res = await getTestCodeForAssignment(programming_assignment_id)
+        const testCode = res[0].test_code
+  
+        console.log(`Re-processing submission ${id} for user ${user_uuid}`);
+  
+        // Re-grade the submission
+        const gradingResult = grade(code, testCode);
+
+        const correct = gradingResult.includes('OK');
+        const graderFeedback = gradingResult === '' 
+          ? 'No feedback from grader. That means your code has an infinite loop' 
+          : gradingResult;
+  
+        // Update the submission status
+        await updateSubmissionStatus({
+          status: 'processed',
+          graderFeedback,
+          correct,
+          id,
+        });
+
+        // Flush the cache but remain submissions_stream
+        await flushCacheExceptStream();
+  
+        // Notify the user via Redis that the submission has been reprocessed
+        const resultChannel = `grading_result_${user_uuid}`;
+        await redisPublisher.publish(resultChannel, JSON.stringify({
+          id,
+          programming_assignment_id,
+          graderFeedback,
+          correct,
+          status: 'processed',
+          code,
+          user_uuid,
+        }));
+  
+        console.log(`Re-processed and published result for submission ${id}`);
+      } catch (error) {
+        console.error(`Failed to process pending submission for assignment with ID ${programming_assignment_id}. Error: ${error}`)
+      }
+    }
+  } else {
+    console.log('No pending submissions older than 5 minutes.');
+  }
+};
+
 processSubmissions();
+
+const FIVE_MINUTES = 5 * 60 * 1000;
+
+setInterval(async () => {
+  console.log('Checking for pending submissions older than 5 minutes...');
+  await processPendingSubmissions();
+}, FIVE_MINUTES);
 
 console.log(`${SERVER_ID} is running and waiting for submissions...`);

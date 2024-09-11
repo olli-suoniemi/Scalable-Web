@@ -26,4 +26,36 @@ const updateSubmissionStatus = async (submissionData) => {
   }
 };
 
-export { updateSubmissionStatus };
+const getPendingSubmissionsOlderThan = async (minutes) => {
+  const fiveMinutesAgo = new Date(Date.now() - minutes * 60000).toISOString();
+
+  try {
+    const result = await client.query(
+      `SELECT * FROM programming_assignment_submissions WHERE status = 'pending' AND last_updated < $1`, 
+      [fiveMinutesAgo]
+    );
+
+    console.log('Found pending submissions:', result.rowCount);
+    return result.rows
+  } catch (err) {
+    console.error('Error getting pending submissions:', err);
+    throw err;
+  }
+};
+
+const getTestCodeForAssignment = async (id) => {
+
+  try {
+    const result = await client.query(
+      `SELECT test_code FROM programming_assignments WHERE id = $1`, 
+      [id]
+    );
+
+    return result.rows
+  } catch (err) {
+    console.error('Error getting test code:', err);
+    throw err;
+  }
+};
+
+export { updateSubmissionStatus, getPendingSubmissionsOlderThan, getTestCodeForAssignment };

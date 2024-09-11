@@ -32,9 +32,9 @@ const handlePostAssignment = async (request) => {
   const pendingSubmissionJson = await pendingSubmission.json()
 
   // Convert to number as the type of the return value from assignmentService is a string
-  // if (Number(pendingSubmissionJson) > 0) {
-  //   return new Response(JSON.stringify({ error: "You already have a submission in grading." }), { status: 403 });
-  // }
+  if (Number(pendingSubmissionJson) > 0) {
+    return new Response(JSON.stringify({ error: "You already have a submission in grading." }), { status: 403 });
+  }
 
   // Check if there is already a matcing submission by the user
 

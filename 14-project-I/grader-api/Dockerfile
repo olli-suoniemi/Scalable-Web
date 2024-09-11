@@ -10,8 +10,10 @@ RUN addgroup node docker
 
 COPY package.json package-lock.json ./
 
-RUN npm install
+# Install dependencies (include nodemon for hot reloading)
+RUN npm install --global nodemon && npm install
 
 COPY . .
 
-CMD ["node", "worker.js"]
+# Use nodemon to start the app with hot reloading
+CMD ["nodemon", "--watch", ".", "worker.js"]

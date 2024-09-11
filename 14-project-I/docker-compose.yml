@@ -60,6 +60,7 @@ services:
       - 7000
     deploy:
       replicas: 2
+    command: ["nodemon", "--watch", ".", "worker.js"]
 
   websocket:
     build: ./websocket
@@ -83,9 +84,10 @@ services:
       - database
     volumes:
       - ./flyway/sql/:/flyway/sql
-    command: -connectRetries=60 -baselineOnMigrate=true migrate
     env_file:
       - project.env
+    entrypoint: ["/flyway/flyway"]
+    command: ["-connectRetries=60", "-url=jdbc:postgresql://database-server:5432/database", "-user=username", "-password=password", -cleanDisabled=false, "clean", "migrate"]
 
   e2e-playwright:
     entrypoint: "/bin/true"
