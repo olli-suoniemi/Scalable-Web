@@ -51,6 +51,7 @@ services:
         - project.env
     depends_on:
       - programming-api
+      - redis
     volumes:
       - ./grader-api/:/app
       - ./app-cache/:/app-cache

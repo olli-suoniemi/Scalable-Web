@@ -10,7 +10,7 @@ const publisherClient = createClient({
 
 await publisherClient.connect();
 
-// cache everything, and flush the cache when the addSubmission method is called
+// cache everything of assignmentService, and flush the cache when one of the methods in the list is called
 const cachedAssignmentService = cacheMethodCalls(assignmentService, ["addSubmission", "deleteSubmissionById", "updateSubmissionStatus", ]);
 
 const handlePostAssignment = async (request) => {
@@ -32,9 +32,9 @@ const handlePostAssignment = async (request) => {
   const pendingSubmissionJson = await pendingSubmission.json()
 
   // Convert to number as the type of the return value from assignmentService is a string
-  if (Number(pendingSubmissionJson) > 0) {
-    return new Response(JSON.stringify({ error: "You already have a submission in grading." }), { status: 403 });
-  }
+  // if (Number(pendingSubmissionJson) > 0) {
+  //   return new Response(JSON.stringify({ error: "You already have a submission in grading." }), { status: 403 });
+  // }
 
   // Check if there is already a matcing submission by the user
 
@@ -103,12 +103,21 @@ const handlePostAssignment = async (request) => {
       const idOfTheSubmission = result[0].id
       
       data.id = idOfTheSubmission
-      
-      // Publish submission to Redis submission queue to wait for the grading
-      await publisherClient.publish('submissions', JSON.stringify(data));
-  
-      // Return the ID of the created submission
-      return Response.json(idOfTheSubmission);
+      try {
+        // Add the submission to Redis Stream 'submissions_stream' to wait for the grading
+        await publisherClient.xAdd('submissions_stream', '*', {
+          userID: String(data.userID),
+          programmingAssignmentID: String(data.programmingAssignmentID),
+          code: String(data.code),
+          testCode: String(data.testCode),
+          submissionID: String(data.id)
+        });
+        
+        // Return the ID of the created submission
+        return Response.json(idOfTheSubmission);
+      } catch (error) {
+        console.error(`Failed to add submission to stream: ${error.message}`);
+      }
     }
     else {
       console.error("No submission ID returned.");
