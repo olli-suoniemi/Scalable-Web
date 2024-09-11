@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine-1.31.0
+FROM node:18-alpine
 
 EXPOSE 7000
 
@@ -6,13 +6,12 @@ WORKDIR /app
 
 RUN apk add --update docker openrc
 RUN rc-update add docker boot
+RUN addgroup node docker
 
-RUN addgroup deno docker
+COPY package.json package-lock.json ./
 
-COPY deps.js .
-
-RUN deno cache deps.js
+RUN npm install
 
 COPY . .
 
-CMD [ "run", "--unstable", "--watch", "--allow-all", "worker.js" ]
+CMD ["node", "worker.js"]

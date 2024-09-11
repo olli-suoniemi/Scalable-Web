@@ -1,88 +1,47 @@
-const run = async (cmdList) => {
-  const process = Deno.run({ cmd: cmdList });
-  await process.status();
+import { execSync } from 'child_process';
+import { writeFileSync, unlinkSync, readFileSync } from 'fs';
+
+const run = (cmdList) => {
+  const cmd = cmdList.join(' ');
+  execSync(cmd, { stdio: 'inherit' });
 };
 
-const createGradingContainer = async (code, testCode, randomKey) => {
+const createGradingContainer = (code, testCode, randomKey) => {
   const codeFileName = `submission-${randomKey}.data`;
-  await Deno.writeTextFile(codeFileName, code);
+  writeFileSync(codeFileName, code);
   const testFileName = `test-${randomKey}.data`;
-  await Deno.writeTextFile(testFileName, testCode);
+  writeFileSync(testFileName, testCode);
 
   const graderContainerName = `submission-image-${randomKey}`;
   const tmpGraderContainerName = `${graderContainerName}-tmp`;
 
-  await run([
-    "docker",
-    "create",
-    "--name",
-    tmpGraderContainerName,
-    "grader-image",
-  ]);
+  run(['docker', 'create', '--name', tmpGraderContainerName, 'grader-image']);
+  run(['docker', 'cp', codeFileName, `${tmpGraderContainerName}:/app/submission/code.py`]);
+  run(['docker', 'cp', testFileName, `${tmpGraderContainerName}:/app/submission/test-code.py`]);
+  run(['docker', 'commit', tmpGraderContainerName, graderContainerName]);
+  run(['docker', 'rm', '-fv', tmpGraderContainerName]);
 
-  await run([
-    "docker",
-    "cp",
-    codeFileName,
-    `${tmpGraderContainerName}:/app/submission/code.py`,
-  ]);
-
-  await run([
-    "docker",
-    "cp",
-    testFileName,
-    `${tmpGraderContainerName}:/app/submission/test-code.py`,
-  ]);
-
-  await run(["docker", "commit", tmpGraderContainerName, graderContainerName]);
-
-  await run(["docker", "rm", "-fv", tmpGraderContainerName]);
-
-  await Deno.remove(codeFileName);
-  await Deno.remove(testFileName);
+  unlinkSync(codeFileName);
+  unlinkSync(testFileName);
 
   return graderContainerName;
 };
 
-const runGradingContainer = async (graderContainerName, randomKey) => {
-  await run([
-    "docker",
-    "run",
-    "--name",
-    `${graderContainerName}-image`,
-    graderContainerName,
-  ]);
+const runGradingContainer = (graderContainerName, randomKey) => {
+  run(['docker', 'run', '--name', `${graderContainerName}-image`, graderContainerName]);
+  run(['docker', 'cp', `${graderContainerName}-image:/app/submission/result.data`, `result-${randomKey}.data`]);
+  run(['docker', 'image', 'rm', '-f', graderContainerName]);
+  run(['docker', 'rm', '-fv', `${graderContainerName}-image`]);
 
-  await run([
-    "docker",
-    "cp",
-    `${graderContainerName}-image:/app/submission/result.data`,
-    `result-${randomKey}.data`,
-  ]);
-
-  await run(["docker", "image", "rm", "-f", `${graderContainerName}`]);
-
-  await run(["docker", "rm", "-fv", `${graderContainerName}-image`]);
-
-  const result = await Deno.readTextFile(`result-${randomKey}.data`);
-
-  await Deno.remove(`result-${randomKey}.data`);
-
+  const result = readFileSync(`result-${randomKey}.data`, 'utf8');
+  unlinkSync(`result-${randomKey}.data`);
   return result.trim();
 };
 
-const grade = async (code, testCode) => {
-
+const grade = (code, testCode) => {
   const randomKey = Math.floor(Math.random() * 900000000 + 100000000);
-
-  const graderContainerName = await createGradingContainer(
-    code,
-    testCode,
-    randomKey,
-  );
-  const result = await runGradingContainer(graderContainerName, randomKey);
-
-  return result;
+  const graderContainerName = createGradingContainer(code, testCode, randomKey);
+  return runGradingContainer(graderContainerName, randomKey);
 };
 
 export { grade };
