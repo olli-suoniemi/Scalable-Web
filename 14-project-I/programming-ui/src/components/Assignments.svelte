@@ -15,7 +15,7 @@
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      console.log("WebSocket connection opened");
+      console.log("WebSocket connection opened for single user");
     };
 
     ws.onmessage = (event) => {

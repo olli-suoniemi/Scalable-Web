@@ -1,0 +1,23 @@
+# Use a smaller, production-ready Node.js image
+FROM node:18-alpine
+
+# Set the working directory
+WORKDIR /app
+
+# Install only necessary packages
+RUN apk add --no-cache bash
+
+# Copy only package files first to leverage Docker cache
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm install --production
+
+# Copy the rest of the application files
+COPY . .
+
+# Expose the port the app runs on
+EXPOSE 7000
+
+# Start the application
+CMD ["node", "worker.js"]

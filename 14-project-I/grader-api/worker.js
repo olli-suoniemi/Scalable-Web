@@ -95,6 +95,21 @@ async function processSubmissions() {
 
           console.log(`Published grading result to ${resultChannel}, Number of clients received: ${publishResult}`);
 
+          // Notify admin via Redis that a submission has been processed
+          const adminChannel = 'admin_updates';
+          await redisPublisher.publish(adminChannel, JSON.stringify({
+            id: submissionID,
+            programmingAssignmentID,
+            graderFeedback,
+            correct,
+            status: 'processed',
+            code,
+            userID,
+            type: 'submission'
+          }));
+
+          console.log(`Published grading result to ${adminChannel}`);
+
           await redisSubscriber.xAck('submissions_stream', 'grader_group', id);
         }
       }
@@ -160,6 +175,19 @@ const processPendingSubmissions = async () => {
           code,
           user_uuid,
         }));
+
+        // Notify admin via Redis that a submission has been reprocessed
+        const adminChannel = 'admin_updates';
+        await redisPublisher.publish(adminChannel, JSON.stringify({
+          id,
+          programming_assignment_id,
+          graderFeedback,
+          correct,
+          status: 'processed',
+          code,
+          user_uuid,
+          type: 'reprocessed'
+        }));
   
         console.log(`Re-processed and published result for submission ${id}`);
       } catch (error) {
@@ -175,9 +203,9 @@ processSubmissions();
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
-// setInterval(async () => {
-//   console.log('Checking for pending submissions older than 5 minutes...');
-//   await processPendingSubmissions();
-// }, FIVE_MINUTES);
+setInterval(async () => {
+  console.log('Checking for pending submissions older than 5 minutes...');
+  await processPendingSubmissions();
+}, FIVE_MINUTES);
 
 console.log(`${SERVER_ID} is running and waiting for submissions...`);

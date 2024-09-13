@@ -210,6 +210,22 @@ const getPendingSubmission = async (id) => {
   }
 }
 
+const getSubmissions = async (limit, offset) => {
+  try {
+    const result = await sql`
+      SELECT * FROM programming_assignment_submissions
+      ORDER BY last_updated DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    return result;
+  } catch (err) {
+    console.error(`Error getting paginated submissions. Error: ${err}`);
+    throw err;
+  }
+};
+
+
+
 export {
   getNextAssignment,
   getAssignments,
@@ -221,5 +237,6 @@ export {
   updateSubmissionStatus,
   getSubmissionById,
   getMostRecentSubmissionForUser,
-  getPendingSubmission
+  getPendingSubmission,
+  getSubmissions
 };

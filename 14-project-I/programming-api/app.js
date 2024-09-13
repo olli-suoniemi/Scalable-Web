@@ -137,7 +137,7 @@ const handleGetNextAssignment = async (request) => {
   return response;
 };
 
-const handleGetSubmissions = async (request) => {
+const handleGetSubmissionsOfUser = async (request) => {
   const requestData = await request.json();
   const userID = requestData["user"]
   
@@ -203,11 +203,38 @@ const handleDeleteSubmission = async (request, { pathname }) => {
   }
 };
 
+const handleGetSubmissions = async (request) => {
+  try {
+    // Get query parameters from the request URL
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page')) || 1; // Default to page 1
+    const limit = parseInt(url.searchParams.get('limit')) || 50; // Default to 50 submissions per page
+
+    // Calculate offset
+    const offset = (page - 1) * limit;
+
+    // Fetch paginated submissions from the service
+    const submissions = await cachedAssignmentService.getSubmissions(limit, offset);
+
+    // Return the paginated submissions
+    return Response.json(submissions);
+  } catch (error) {
+    console.error('Error fetching submissions:', error);
+    return Response.error();
+  }
+};
+
+
 const urlMapping = [
+    {
+      method: "GET",
+      pattern: new URLPattern({ pathname: "/submissions" }),
+      fn: handleGetSubmissions,
+    },
     {
       method: "POST",
       pattern: new URLPattern({ pathname: "/submissions" }),
-      fn: handleGetSubmissions,
+      fn: handleGetSubmissionsOfUser,
     },
     {
       method: "POST",

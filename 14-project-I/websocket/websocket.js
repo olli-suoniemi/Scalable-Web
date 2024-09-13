@@ -11,6 +11,17 @@ await redisClient.connect();
 
 const subscriptions = new Map();
 
+// Function to handle Redis channel subscription
+const subscribeToChannel = (channel, socket) => {
+  console.log(`Subscribing to Redis channel: ${channel}`);
+  redisClient.subscribe(channel, (message) => {
+    const parsedMessage = JSON.parse(message);
+    console.log(`Received message from Redis channel ${channel}. ID: ${parsedMessage.id}. Status: ${parsedMessage.status}.`);
+    socket.send(message);
+  });
+};
+
+// Function to handle WebSocket requests
 const handleRequest = async (request) => {
   const { socket, response } = Deno.upgradeWebSocket(request);
 
@@ -24,18 +35,12 @@ const handleRequest = async (request) => {
       const channel = `grading_result_${userID}`;
 
       if (!subscriptions.has(userID)) {
-        console.log(`Subscribing to Redis channel: ${channel}`);
-        redisClient.subscribe(channel, (message) => {
-          const parsedMessage = JSON.parse(message)
-          console.log(`Received message from Redis channel ${channel}. ID: ${parsedMessage.id}. Status: ${parsedMessage.status}.`);
-          socket.send(message);
-        });
+        subscribeToChannel(channel, socket);
         subscriptions.set(userID, channel);
       }
 
       socket.onclose = () => {
         console.log("WebSocket connection closed");
-        // Unsubscribe from the Redis channel on WebSocket close
         redisClient.unsubscribe(subscriptions.get(userID));
         subscriptions.delete(userID);
       };
@@ -44,8 +49,23 @@ const handleRequest = async (request) => {
         console.error("WebSocket error:", err);
       };
     } else {
-      console.error("No userID provided, cannot subscribe to Redis channel");
-      socket.close(4001, "Missing userID");
+      console.log("Admin WebSocket connection");
+      const adminChannel = "admin_updates";
+
+      if (!subscriptions.has(adminChannel)) {
+        subscribeToChannel(adminChannel, socket);
+        subscriptions.set(adminChannel, adminChannel);
+      }
+
+      socket.onclose = () => {
+        console.log("Admin WebSocket connection closed");
+        redisClient.unsubscribe(subscriptions.get(adminChannel));
+        subscriptions.delete(adminChannel);
+      };
+
+      socket.onerror = (err) => {
+        console.error("WebSocket error:", err);
+      };
     }
   };
 

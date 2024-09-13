@@ -4,16 +4,16 @@ volumes:
   astro_node_modules:
 
 services:
-  todo-ui:
-    build:
-      context: todo-ui
+  programming-ui:
+    build: 
+      context: programming-ui
       dockerfile: Dockerfile.prod
-    image: todo-ui-prod
+    image: programming-ui-prod
     restart: "on-failure"
     expose:
       - 3000
     depends_on:
-      - todo-api
+      - programming-api
     deploy:
       restart_policy:
         condition: on-failure
@@ -34,15 +34,15 @@ services:
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - todo-api
+      - programming-api
     ports:
       - 7800:7800
 
-  todo-api:
-    build:
-      context: todo-api
+  programming-api:
+    build: 
+      context: programming-api
       dockerfile: Dockerfile.prod
-    image: todo-api-prod
+    image: programming-api-prod
     restart: "on-failure"
     expose:
       - 7777
@@ -59,6 +59,25 @@ services:
         delay: "5s"
         max_attempts: 5
         window: "30s"
+
+  grader-api:
+    build: grader-api
+    image: grader-api
+    restart: "no"
+    env_file:
+        - project.env
+    depends_on:
+      - programming-api
+      - redis
+    volumes:
+      - ./grader-api/:/app
+      - ./app-cache/:/app-cache
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    expose:
+      - 7000
+    deploy:
+      replicas: 2
+    command: ["nodemon", "--watch", ".", "worker.js"]
 
   database:
     container_name: database-server
@@ -80,7 +99,7 @@ services:
       - project.env
     profiles:
       - migrate
-  
+
   pgadmin:
     image: dpage/pgadmin4:6.20
     env_file:
@@ -89,3 +108,30 @@ services:
       - database
     profiles:
       - pgadmin
+
+  websocket:
+    build: ./websocket
+    ports:
+      - "7788:7788"
+    depends_on:
+      - redis
+    volumes:
+      - ./websocket/:/app  
+
+  e2e-playwright:
+    entrypoint: "/bin/true"
+    build: e2e-playwright
+    image: e2e-playwright
+    network_mode: host
+    depends_on:
+      - nginx
+      - database
+      - flyway
+      - programming-api
+      - programming-ui
+      - grader-api
+      - websocket
+      - redis
+    volumes:
+      - ./e2e-playwright/tests:/e2e-playwright/tests
+      
