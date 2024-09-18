@@ -69,6 +69,7 @@ services:
     depends_on:
       - programming-api
       - redis
+      - database
     volumes:
       - ./grader-api/:/app
       - ./app-cache/:/app-cache
