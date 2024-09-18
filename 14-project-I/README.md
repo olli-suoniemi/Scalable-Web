@@ -151,6 +151,8 @@ docker compose -f docker-compose.prod.yml up -d
 docker compose down
 ```
 
+Note: The 'All submissions' page doesn't work in production mode
+
 <br>
 
 ## Running Instructions for Flyway Migrations and Database Admin
@@ -162,3 +164,6 @@ docker compose --profile migrate --profile pgadmin up
 ```
 
 
+## To improve
+
+In re-processing of old submissions, submission are reprocessed by all graders and not only one

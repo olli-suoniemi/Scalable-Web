@@ -8,6 +8,6 @@
   <div class="flex space-x-4">
     <!-- Navigation Links -->
     <a href="/" class="text-white text-lg hover:underline">Home</a>
-    <a href="/admin" class="text-white text-lg hover:underline">Admin</a>
+    <a href="/submissions" class="text-white text-lg hover:underline">All submissions</a>
   </div>
 </nav>

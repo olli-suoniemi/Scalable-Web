@@ -27,8 +27,6 @@ const handlePostAssignment = async (request) => {
     programmingAssignmentID
   };
 
-  console.log("Posting assignment...", data)
-
   // Check if there's already a submission in grading for this user
   const pendingSubmission = Response.json(await cachedAssignmentService.getPendingSubmission(userID));
   const pendingSubmissionJson = await pendingSubmission.json()
