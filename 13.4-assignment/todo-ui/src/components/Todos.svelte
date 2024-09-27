@@ -38,6 +38,7 @@
 
 <input type="text" bind:value={todo} />
 <button on:click={addTodo}>Add todo</button>
+<a href="/about">About</a>
 
 {#await todosPromise}
   <p>Loading todos</p>
