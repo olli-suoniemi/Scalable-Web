@@ -9,30 +9,76 @@ const redisClient = createClient({
 
 await redisClient.connect();
 
+// Map to track active WebSocket connections by channel
+const channelSubscriptions = new Map(); // { channelName: Set of WebSockets }
+
 // Function to handle WebSocket requests
 const handleRequest = async (request) => {
   const { socket, response } = Deno.upgradeWebSocket(request);
 
-  socket.onopen = () => {
-    console.log("WebSocket connection opened");
-  };
+  const url = new URL(request.url);
+  const course = url.searchParams.get("course");
+  const question = url.searchParams.get("question");
+  let channel = "";
 
+  if (course) {
+    channel = `course_${course}`;
+  } else if (question) {
+    channel = `question_${question}`;
+  }
+
+  if (!channel) {
+    console.error("Invalid request: No course or question specified");
+    socket.close();
+    return response;
+  }
+
+  console.log("WebSocket connection on", channel);
+
+  // Add the socket to the channel's subscribers set
+  if (!channelSubscriptions.has(channel)) {
+    channelSubscriptions.set(channel, new Set());
+  }
+  const subscribers = channelSubscriptions.get(channel);
+  subscribers.add(socket);
+
+  // Subscribe to Redis channel if it's the first WebSocket connection
+  if (subscribers.size === 1) {
+    redisClient.subscribe(channel, (message) => {
+      const parsedMessage = JSON.parse(message);
+      console.log(`Received message from Redis channel ${channel}. ID: ${parsedMessage.id}.`);
+
+      // Send the message only to the subscribers of this channel
+      channelSubscriptions.get(channel).forEach((ws) => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(message);
+        }
+      });
+    });
+  }
+
+  // Handle WebSocket close event
   socket.onclose = () => {
-    console.log("WebSocket connection closed");
+    console.log(`WebSocket closed for channel: ${channel}`);
+    subscribers.delete(socket);
+
+    // Unsubscribe from Redis if no more subscribers for this channel
+    if (subscribers.size === 0) {
+      redisClient.unsubscribe(channel);
+      channelSubscriptions.delete(channel);
+      console.log(`Unsubscribed from Redis channel ${channel}`);
+    }
   };
 
+  // Handle WebSocket errors
   socket.onerror = (err) => {
     console.error("WebSocket error:", err);
   };
-  
-  socket.onmessage = (event) => {
-    console.log("Received message from client:", event.data);
-  };
 
   return response;
-
 };
 
 // Serve WebSocket on port 7788
 serve(handleRequest, { port: 7788 });
 console.log("WebSocket server running on ws://localhost:7788");
+

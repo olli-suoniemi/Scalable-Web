@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { userUuid } from '../stores/stores.js';
 
   export let questionId; // Question ID passed as a prop
@@ -11,6 +11,57 @@
   let newAnswer = '';
   let currentPage = 1; // Track the current page
   const limit = 10; // Max questions per page
+
+  // WebSocket connection
+  let ws;
+  let reconnectInterval = 1000; // Start with 1 second
+  let reconnectAttempts = 0;
+  let maxReconnectAttempts = 5;
+  let manualClose = false; // Track if the WebSocket was closed manually
+  
+  const setupWebSocket = () => {
+    const wsUrl = `ws://localhost:7788/ws?question=${questionId}`;
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log("WebSocket connection opened for question", questionId);
+      reconnectInterval = 1000; // Reset the interval on successful connection
+      reconnectAttempts = 0; // Reset attempts count
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log(data);
+      console.log(answers);
+      // Check if the answer is already in the array
+      if (!answers.some(answer => answer.id === data.id)) {
+        answers = [data, ...answers];  // Add the new answer only if it doesn't already exist
+      }
+    };
+
+    ws.onclose = () => {
+      if (!manualClose && reconnectAttempts < maxReconnectAttempts) {
+        console.log("WebSocket connection closed. Attempting to reconnect...");
+        reconnectAttempts++;
+        setTimeout(() => {
+          reconnectWebSocket();
+        }, reconnectInterval);
+        reconnectInterval = Math.min(reconnectInterval * 2, 30000); // Exponential backoff, max 30 seconds
+      } else {
+        console.log("WebSocket closed manually or max reconnection attempts reached.");
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+      ws.close(); // Close on error to trigger reconnect
+    };
+  };
+
+  const reconnectWebSocket = () => {
+    console.log(`Reconnecting websocket... Attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+    setupWebSocket();
+  };
 
 
   // Function to fetch the question details and its answers
@@ -43,8 +94,12 @@
       const questionData = await response.json();
       question = questionData.question; // The main question object
 
-      answers = [...answers, ...questionData.answers]; // Append new answers for subsequent pages
-        } catch (error) {
+      // Append new answers for subsequent pages without duplicating
+      answers = [
+        ...answers,
+        ...questionData.answers.filter(newAnswer => !answers.some(answer => answer.id === newAnswer.id))
+      ];
+    } catch (error) {
       errorMessage = error.message; // Set error message if fetching fails
     } 
   };
@@ -124,6 +179,9 @@
         
         // Convert upvote_count to a number and increment it
         answers[answerIndex].upvotes = Number(answers[answerIndex].upvotes) + 1;
+        
+        // Update the last_updated field to the current time
+        answers[answerIndex].last_updated = new Date().toISOString();
       }
     } catch (error) {
       errorMessage = error.message; // Set error message if upvoting fails
@@ -133,10 +191,22 @@
 
   // Fetch question details and answers on component mount
   onMount(() => {
+    setupWebSocket(); 
     fetchQuestionDetailsInitial(); // Initial fetch
     window.addEventListener('scroll', handleScroll); // Add scroll event listener
     return () => window.removeEventListener('scroll', handleScroll); // Cleanup
   });
+
+
+  // Cleanup WebSocket connection on component destroy
+  onDestroy(() => {
+    if (ws) {
+      manualClose = true; // Mark as manually closed to avoid auto-reconnect
+      ws.close();
+    }
+  });
+
+
 </script>
 
 {#if loading}

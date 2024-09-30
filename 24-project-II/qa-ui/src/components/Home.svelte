@@ -11,12 +11,11 @@
       if (!response.ok) {
         throw new Error('Failed to fetch courses');
       }
-      courses = await response.json(); // Parse the JSON response
+      courses = await response.json();
       console.log('Fetched courses', courses);
       
     } catch (error) {
       console.error(error);
-      // Handle the error (e.g., set an error state, display a message, etc.)
     }
   });
 </script>

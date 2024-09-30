@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { userUuid } from '../stores/stores.js'
 
   export let courseId;
@@ -11,6 +11,52 @@
   let newQuestion = '';
   let currentPage = 1; // Track the current page
   const limit = 10; // Max questions per page
+
+  // WebSocket connections
+  let ws;
+  let reconnectInterval = 1000; // Start with 1 second
+  let reconnectAttempts = 0;
+  let maxReconnectAttempts = 5;
+  let manualClose = false; // Track if the WebSocket was closed manually
+  
+  const setupWebSocket = () => {
+    const wsUrl = `ws://localhost:7788/ws?course=${courseId}`;
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log("WebSocket connection opened for course", courseId);
+      reconnectInterval = 1000; // Reset the interval on successful connection
+      reconnectAttempts = 0; // Reset attempts count
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      questions = [data, ...questions];  // Add the new question to the top
+    };
+
+    ws.onclose = () => {
+    if (!manualClose && reconnectAttempts < maxReconnectAttempts) {
+      console.log("WebSocket connection closed. Attempting to reconnect...");
+      reconnectAttempts++;
+      setTimeout(() => {
+        reconnectWebSocket();
+      }, reconnectInterval);
+      reconnectInterval = Math.min(reconnectInterval * 2, 30000); // Exponential backoff, max 30 seconds
+    } else {
+      console.log("WebSocket closed manually or max reconnection attempts reached.");
+    }
+  };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+      ws.close(); // Close on error to trigger reconnect
+    };
+  };
+
+  const reconnectWebSocket = () => {
+    console.log(`Reconnecting websocket... Attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+    setupWebSocket();
+  };
 
   // Function to fetch course details and related questions
   const fetchCourseDetails = async () => {
@@ -115,6 +161,9 @@
       if (questionIndex !== -1) {
         // Convert upvote_count to a number and increment it
         questions[questionIndex].upvote_count = Number(questions[questionIndex].upvote_count) + 1;
+        
+        // Update the last_updated field to the current time
+        questions[questionIndex].last_updated = new Date().toISOString();
       }
     } catch (error) {
       errorMessage = error.message; // Set error message if upvote fails
@@ -124,10 +173,22 @@
 
   // Fetch course details and questions on component mount
   onMount(() => {
+    setupWebSocket(); 
     fetchCourseDetails();
     window.addEventListener('scroll', handleScroll); // Add scroll event listener
     return () => window.removeEventListener('scroll', handleScroll); // Cleanup
   });
+
+
+  // Cleanup WebSocket connection on component destroy
+  onDestroy(() => {
+    if (ws) {
+      manualClose = true; // Mark as manually closed to avoid auto-reconnect
+      ws.close();
+    }
+  });
+
+
 </script>
 
 {#if loading}

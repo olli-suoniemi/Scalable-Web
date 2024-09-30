@@ -3,12 +3,11 @@ import { createClient } from "npm:redis@4.6.4";
 
 // Redis Publisher Client
 const publisherClient = createClient({
-  url: "redis://redis:6379",  // Replace with your Redis instance connection string if needed
+  url: "redis://redis:6379", 
   pingInterval: 1000,
 });
 
-// Connect to Redis
-publisherClient.connect().catch(console.error);
+await publisherClient.connect();
 
 
 // Handle fetching available courses (main page)
@@ -30,23 +29,26 @@ const handlePostQuestion = async (request) => {
   const courseID = requestData["courseID"];
   const questionText = requestData["question"];
   const userID = requestData["user"];
-
-  // // Rate limit: only allow one question per user per minute
-  // const lastQuestionTime = await questionService.getLastQuestionTime(userID);
-  // if (lastQuestionTime && Date.now() - lastQuestionTime < 60000) {
-  //   return new Response(
-  //     JSON.stringify({ error: "Please wait a minute before posting again." }),
-  //     { status: 429 }
-  //   );
-  // }
+  
+  // Rate limit: only allow one question per user per minute
+  const lastQuestionTime = await questionService.getLastQuestionTime(userID);
+  if (lastQuestionTime && Date.now() - lastQuestionTime < 60000) {
+    return new Response(
+      JSON.stringify({ error: "Please wait a minute before posting again." }),
+      { status: 429 }
+    );
+  }
 
   // Add the new question to the database
+  const createdAt = new Date();
+  const lastUpdated = new Date();
+
   const newQuestion = {
     courseID,
     questionText,
     userID,
-    createdAt: new Date(),
-    lastUpdated: new Date(),
+    createdAt: createdAt,
+    lastUpdated: lastUpdated,
   };
 
   const result = await questionService.addQuestion(newQuestion);
@@ -54,6 +56,28 @@ const handlePostQuestion = async (request) => {
   if (result && result.id) {
     const resultCopy = JSON.parse(JSON.stringify(result)); // Deep clone
     const resultID = resultCopy.id; // Use resultCopy
+
+    // Publish the question to the course channel
+    try {
+      const resultChannel = `course_${courseID}`;
+      const questionResult = {
+        id: resultID,
+        course_id: courseID,
+        content: questionText,
+        user_id: userID,
+        created_at: createdAt,
+        last_updated: lastUpdated,
+        upvote_count: 0
+      }
+      const publishResult = await publisherClient.publish(
+        resultChannel, 
+        JSON.stringify(questionResult)
+      );
+      console.log(`Question of ID ${resultID} published to channel ${resultChannel}`);
+
+    } catch (publishError) {
+      console.error("Error publishing to Redis:", publishError.message || publishError);
+    }
 
     // Immediately respond to the user that the question was created successfully
     const userResponse = new Response(JSON.stringify(result), { status: 201 });
@@ -74,23 +98,45 @@ const handlePostQuestion = async (request) => {
             body: JSON.stringify({ question: questionText }),
           });
 
+
           if (llmResponse.ok) {
             const answer = await llmResponse.json(); 
             
             let generatedText = answer[0].generated_text;
             
             try {
+              const createdAt = new Date();
+              const lastUpdated = new Date();
+              
               // Add the new LLM answer to the database
               const newAnswer = {
                 questionID: resultID,
                 answerText: generatedText,
                 userID: 'LLM',
-                createdAt: new Date(),
-                lastUpdated: new Date(),
+                createdAt: createdAt,
+                lastUpdated: lastUpdated,
                 isLLMGenerated: true
               };
 
-              await questionService.addAnswer(newAnswer);
+              const answerResult = await questionService.addAnswer(newAnswer);
+
+              const resultCopy = JSON.parse(JSON.stringify(answerResult)); // Deep clone
+              const answerID = resultCopy.id; // Use resultCopy
+
+              // Publish generated answer to a Redis channel for further processing
+              const resultChannel = `question_${resultID}`;
+              const resultAnswer = {
+                id: answerID,
+                question_id: resultID,
+                content: generatedText,
+                user_id: 'LLM',
+                created_at: createdAt,
+                last_updated: lastUpdated,
+                is_llm_generated: true
+              }
+              await publisherClient.publish(resultChannel, JSON.stringify(resultAnswer));
+              console.log(`Answer of ID ${answerID} published to channel ${resultChannel}`);
+    
             } catch (error) {
               console.error(error)
             }
@@ -102,16 +148,7 @@ const handlePostQuestion = async (request) => {
             console.error(`Failed to generate LLM answer for question ${result.id}`);
           }
         }
-
-        // Publish each generated answer to a Redis channel for further processing
-        for (const answer of generatedAnswers) {
-          await publisherClient.publish("llm-answers", JSON.stringify({
-            questionID: result.id,
-            answer: answer.answer, // Send each generated answer
-          }));
-        }
-
-        console.log(`LLM answers for question ${result.id} published to Redis channel`);
+  
       } catch (error) {
         console.error(`Error while calling LLM API or publishing to Redis: ${error}`);
       }
@@ -165,28 +202,59 @@ const handlePostAnswer = async (request) => {
   const userID = requestData["user"];
 
   // Rate limit: only allow one answer per user per minute
-  // const lastAnswerTime = await questionService.getLastAnswerTime(userID);
-  // if (lastAnswerTime && Date.now() - lastAnswerTime < 60000) {
-  //   return new Response(
-  //     JSON.stringify({ error: "Please wait a minute before posting again." }),
-  //     { status: 429 }
-  //   );
-  // }
+  const lastAnswerTime = await questionService.getLastAnswerTime(userID);
+  if (lastAnswerTime && Date.now() - lastAnswerTime < 60000) {
+    return new Response(
+      JSON.stringify({ error: "Please wait a minute before posting again." }),
+      { status: 429 }
+    );
+  }
 
+  const createdAt = new Date();
+  const lastUpdated = new Date();
   // Add the new answer to the database
   const newAnswer = {
     questionID,
     answerText,
     userID,
-    createdAt: new Date(),
-    lastUpdated: new Date(),
+    createdAt: createdAt,
+    lastUpdated: lastUpdated,
     isLLMGenerated: false
   };
 
   const result = await questionService.addAnswer(newAnswer);
-  return result
-    ? new Response(JSON.stringify(result), { status: 201 })
-    : new Response("Failed to create answer.", { status: 500 });
+  
+  if (result && result.id) {
+    const resultCopy = JSON.parse(JSON.stringify(result)); // Deep clone
+    const resultID = resultCopy.id; // Use resultCopy
+    
+    // Publish the answer to the question channel
+    try {
+      const resultChannel = `question_${questionID}`;
+      const answerResult = {
+        id: resultID,
+        question_id: questionID,
+        content: answerText,
+        user_id: userID,
+        created_at: createdAt,
+        last_updated: lastUpdated,
+        is_llm_generated: false,
+        upvotes: 0
+      }
+      const publishResult = await publisherClient.publish(
+        resultChannel, 
+        JSON.stringify(answerResult)
+      );
+      console.log(`Answer of ID ${resultID} published to channel ${resultChannel}`);
+
+    } catch (publishError) {
+      console.error("Error publishing to Redis:", publishError.message || publishError);
+    }
+
+    return new Response(JSON.stringify(result), { status: 201 })
+  } else {
+    return  new Response("Failed to create answer.", { status: 500 });
+  }
 };
 
 // Handle upvoting a question

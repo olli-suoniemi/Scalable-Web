@@ -72,7 +72,7 @@ export const getQuestions = async (courseID, page, limit) => {
       LEFT JOIN upvotes u ON u.entity_type = 'question' AND u.entity_id = q.id
       WHERE q.course_id = ${courseID}
       GROUP BY q.id
-      ORDER BY q.created_at DESC
+      ORDER BY COALESCE(MAX(u.created_at), q.created_at) DESC, q.last_updated DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
     return result;
@@ -81,6 +81,7 @@ export const getQuestions = async (courseID, page, limit) => {
     throw error;
   }
 };
+
 
 
 // Fetch a specific question by its ID
@@ -136,12 +137,12 @@ export const getAnswersByQuestionId = async (questionID, page, limit) => {
   const offset = (page - 1) * limit;
   try {
     const result = await sql`
-      SELECT a.*, COUNT(u.id) AS upvotes
+      SELECT a.*, COUNT(u.id) AS upvotes, COALESCE(MAX(u.created_at), a.created_at) AS recent_time
       FROM answers a
       LEFT JOIN upvotes u ON u.entity_type = 'answer' AND u.entity_id = a.id
       WHERE a.question_id = ${questionID}
       GROUP BY a.id
-      ORDER BY a.created_at DESC
+      ORDER BY recent_time DESC, a.last_updated DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
     return result;
@@ -150,6 +151,7 @@ export const getAnswersByQuestionId = async (questionID, page, limit) => {
     throw error;
   }
 };
+
 
 
 // --- Upvotes ---
@@ -168,7 +170,7 @@ export const hasUserUpvotedQuestion = async (userID, questionID) => {
   }
 };
 
-// Increment upvote count for a question
+// Increment upvote count for a question and update its last_updated timestamp
 export const upvoteQuestion = async (userID, questionID) => {
   try {
     // Check if the user has already upvoted this question
@@ -183,6 +185,13 @@ export const upvoteQuestion = async (userID, questionID) => {
       VALUES ('question', ${userID}, ${questionID}, NOW())
     `;
     
+    // Update the last_updated timestamp of the question
+    await sql`
+      UPDATE questions
+      SET last_updated = NOW()
+      WHERE id = ${questionID}
+    `;
+
     return { success: true };
   } catch (error) {
     console.error("Error upvoting question:", error);
@@ -218,6 +227,13 @@ export const upvoteAnswer = async (userID, answerID) => {
     await sql`
       INSERT INTO upvotes (entity_type, user_id, entity_id, created_at)
       VALUES ('answer', ${userID}, ${answerID}, NOW())
+    `;
+
+    // Update the last_updated timestamp of the answer
+    await sql`
+      UPDATE answers
+      SET last_updated = NOW()
+      WHERE id = ${answerID}
     `;
     
     return { success: true };
