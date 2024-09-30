@@ -1,8 +1,11 @@
 ---
-import Layout from "../layout/Layout.astro";
-import TestButton from "../components/TestButton.svelte";
+export const prerender = true;
+
+import Layout from '../layout/Layout.astro';
+import Home from '../components/Home.svelte';
 ---
 
 <Layout>
-  <TestButton client:only={"svelte"} />
+  <Home client:only="svelte" />
 </Layout>
+

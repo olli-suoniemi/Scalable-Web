@@ -11,6 +11,7 @@ services:
     depends_on:
       - qa-api
       - qa-ui
+      - websocket 
     ports:
       - 7800:7800
 
@@ -26,6 +27,7 @@ services:
     depends_on:
       - database
       - flyway
+      - redis
     env_file:
       - project.env
 
@@ -74,3 +76,18 @@ services:
       - nginx
     volumes:
       - ./e2e-playwright/tests:/e2e-playwright/tests
+
+  redis:
+    image: redis:latest
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    expose:
+      - 6379
+  
+  websocket:
+    build: ./websocket
+    expose:
+      - 7788
+    volumes:
+      - ./websocket/:/app  
