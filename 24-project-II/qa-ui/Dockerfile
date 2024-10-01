@@ -1,4 +1,4 @@
-FROM node:lts-alpine3.17
+FROM node:lts
 
 EXPOSE 3000
 
@@ -12,4 +12,4 @@ RUN npm install
 
 COPY . .
 
-CMD [ "astro", "dev" ]
+CMD [ "npm", "run", "dev" ]

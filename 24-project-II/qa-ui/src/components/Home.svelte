@@ -12,7 +12,6 @@
         throw new Error('Failed to fetch courses');
       }
       courses = await response.json();
-      console.log('Fetched courses', courses);
       
     } catch (error) {
       console.error(error);

@@ -23,21 +23,14 @@ docker compose run --rm --entrypoint=npx e2e-playwright playwright test
 
 ## Running Instructions for Development Environment
 
-1. Navigate to the `qa-api` directory and install dependencies:
+1. Navigate to the `qa-ui` directory and install dependencies:
 
 ```bash
 npm i
 ```
 <br>
 
-2. Navigate to the `qa-ui` directory and install dependencies:
-
-```bash
-npm i
-```
-<br>
-
-3. From the root directory of the project, start the services:
+2. From the root directory of the project, start the services:
 
 ```bash
 docker compose up --build
@@ -59,6 +52,8 @@ sudo rm -rf node_modules package-lock.json
 npm install
 ```
 
+<br>
+
 2. Clear docker containers and build app:
 
 ```bash
@@ -68,23 +63,33 @@ docker compose up --build
 
 <br>
 
+3. docker exec -it 24-project-ii-qa-ui-1 /bin/sh
+
+<br>
+
+4. netstat -tuln
+
+<br>
+
+5. Check that there is local address 0.0.0.0:3000. If not, or it is something else (like 0.0.0.0:4321) then change the server qa-ui:3000 in nginx.prod.conf to server qa-ui:4321 and restart the production build.
+
+<br>
+
 ## Running Instructions for Production Environment
 
-1. Navigate to the `qa-api` directory and install dependencies:
+
+1. Navigate to the `qa-ui` directory and install dependencies:
 
 ```bash
 npm i
 ```
 <br>
 
-2. Navigate to the `qa-ui` directory and install dependencies:
+2. Uncomment the marked lines in qa-ui/astro.config.mjs
 
-```bash
-npm i
-```
 <br>
 
-3. From the root directory of the project, launch the application, creating it as a daemon:
+2. From the root directory of the project, launch the application, creating it as a daemon:
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
