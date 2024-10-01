@@ -1,4 +1,5 @@
-FROM node:lts-alpine3.17 as build
+# Stage 1: Build the app
+FROM node:lts-alpine3.17 AS build
 
 WORKDIR /app
 
@@ -10,14 +11,20 @@ RUN npm install
 
 COPY . .
 
-RUN astro build
+# Build the app
+RUN npm run build
 
-FROM nginx:latest as server
+# List the contents of the Vercel output directory to confirm
+RUN ls -la /app/.vercel/output
+
+# Stage 2: Serve the app using Nginx
+FROM nginx:latest AS server
 
 EXPOSE 3000
 
+# Adjust the Nginx config to serve from the Vercel output
 RUN sed -i "s/80/3000/g" /etc/nginx/conf.d/default.conf
 
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/.vercel/output /usr/share/nginx/html
 
 CMD ["nginx", "-g", "daemon off;"]
