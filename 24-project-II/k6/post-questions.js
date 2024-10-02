@@ -9,7 +9,7 @@ export const options = {
 export default function () {
   
   const newQuestion = { 
-    courseID: 4,
+    courseID: 1,
     question: "Am I a robot?",
     user: crypto.randomUUID().toString(),
   };

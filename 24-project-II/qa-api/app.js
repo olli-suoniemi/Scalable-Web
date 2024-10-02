@@ -1,4 +1,5 @@
 import * as questionService from "./services/questionsService.js";
+import { cacheMethodCalls } from "./util/cacheUtil.js";
 import { createClient } from "npm:redis@4.6.4";
 
 // Redis Publisher Client
@@ -9,17 +10,19 @@ const publisherClient = createClient({
 
 await publisherClient.connect();
 
+// set cached methods calls and set the cache to flush when one of the methods in the list is called
+const cachedQuestionService = cacheMethodCalls(questionService, ["addQuestion", "addAnswer", "upvoteQuestion", "upvoteAnswer"]);
 
 // Handle fetching available courses (main page)
 const handleGetCourses = async (request) => {
-  const courses = await questionService.getAllCourses();
+  const courses = await cachedQuestionService.getAllCourses();
   return new Response(JSON.stringify(courses), { status: 200 });
 };
 
 // Handle fetching sinle course (course page)
 const handleGetCourse = async (request, { pathname }) => {
   const courseID = pathname.groups.id;
-  const course = await questionService.getCourseById(courseID);
+  const course = await cachedQuestionService.getCourseById(courseID);
   return new Response(JSON.stringify(course), { status: 200 });
 };
 
@@ -31,7 +34,7 @@ const handlePostQuestion = async (request) => {
   const userID = requestData["user"];
   
   // Rate limit: only allow one question per user per minute
-  const lastQuestionTime = await questionService.getLastQuestionTime(userID);
+  const lastQuestionTime = await cachedQuestionService.getLastQuestionTime(userID);
   if (lastQuestionTime && Date.now() - lastQuestionTime < 60000) {
     return new Response(
       JSON.stringify({ error: "Please wait a minute before posting again." }),
@@ -51,7 +54,7 @@ const handlePostQuestion = async (request) => {
     lastUpdated: lastUpdated,
   };
 
-  const result = await questionService.addQuestion(newQuestion);
+  const result = await cachedQuestionService.addQuestion(newQuestion);
 
   if (result && result.id) {
     const resultCopy = JSON.parse(JSON.stringify(result)); // Deep clone
@@ -118,7 +121,7 @@ const handlePostQuestion = async (request) => {
                 isLLMGenerated: true
               };
 
-              const answerResult = await questionService.addAnswer(newAnswer);
+              const answerResult = await cachedQuestionService.addAnswer(newAnswer);
 
               const resultCopy = JSON.parse(JSON.stringify(answerResult)); // Deep clone
               const answerID = resultCopy.id; // Use resultCopy
@@ -170,7 +173,7 @@ const handleGetQuestions = async (request) => {
   const page = parseInt(url.searchParams.get("page")) || 1;
   const limit = parseInt(url.searchParams.get("limit")) || 20;
 
-  const questions = await questionService.getQuestions(courseID, page, limit);
+  const questions = await cachedQuestionService.getQuestions(courseID, page, limit);
   return new Response(JSON.stringify(questions), { status: 200 });
 };
 
@@ -184,8 +187,8 @@ const handleGetQuestionDetails = async (request, { pathname }) => {
   const page = parseInt(url.searchParams.get("page")) || 1;
   const limit = parseInt(url.searchParams.get("limit")) || 10; // Set a default limit
 
-  const question = await questionService.getQuestionById(questionID);
-  const answers = await questionService.getAnswersByQuestionId(questionID, page, limit); // Pass pagination parameters
+  const question = await cachedQuestionService.getQuestionById(questionID);
+  const answers = await cachedQuestionService.getAnswersByQuestionId(questionID, page, limit); // Pass pagination parameters
 
   if (question) {
     return new Response(JSON.stringify({ question, answers }), { status: 200 });
@@ -203,7 +206,7 @@ const handlePostAnswer = async (request) => {
   const userID = requestData["user"];
 
   // Rate limit: only allow one answer per user per minute
-  const lastAnswerTime = await questionService.getLastAnswerTime(userID);
+  const lastAnswerTime = await cachedQuestionService.getLastAnswerTime(userID);
   if (lastAnswerTime && Date.now() - lastAnswerTime < 60000) {
     return new Response(
       JSON.stringify({ error: "Please wait a minute before posting again." }),
@@ -223,7 +226,7 @@ const handlePostAnswer = async (request) => {
     isLLMGenerated: false
   };
 
-  const result = await questionService.addAnswer(newAnswer);
+  const result = await cachedQuestionService.addAnswer(newAnswer);
   
   if (result && result.id) {
     const resultCopy = JSON.parse(JSON.stringify(result)); // Deep clone
@@ -264,13 +267,13 @@ const handleUpvoteQuestion = async (request, { pathname }) => {
   const { user } = await request.json(); // Extract user token
 
   // Check if the user has already upvoted the question
-  const hasUpvoted = await questionService.hasUserUpvotedQuestion(user, questionID);
+  const hasUpvoted = await cachedQuestionService.hasUserUpvotedQuestion(user, questionID);
   if (hasUpvoted) {
     return new Response(JSON.stringify({ error: "You have already upvoted this question." }), { status: 403 });
   }
 
   // Increment the upvote count
-  const upvoteResult = await questionService.upvoteQuestion(user, questionID);
+  const upvoteResult = await cachedQuestionService.upvoteQuestion(user, questionID);
 
   return new Response(JSON.stringify(upvoteResult), { status: 200 });
 };
@@ -281,13 +284,13 @@ const handleUpvoteAnswer = async (request, { pathname }) => {
   const { user } = await request.json(); // Extract user token
 
   // Check if the user has already upvoted the answer
-  const hasUpvoted = await questionService.hasUserUpvotedAnswer(user, answerID);
+  const hasUpvoted = await cachedQuestionService.hasUserUpvotedAnswer(user, answerID);
   if (hasUpvoted) {
     return new Response(JSON.stringify({ error: "You have already upvoted this answer." }), { status: 403 });
   }
 
   // Increment the upvote count
-  const upvoteResult = await questionService.upvoteAnswer(user, answerID);
+  const upvoteResult = await cachedQuestionService.upvoteAnswer(user, answerID);
 
   return new Response(JSON.stringify(upvoteResult), { status: 200 });
 };

@@ -520,8 +520,102 @@ default ✓ [======================================] 10 VUs  10s
 running (10.0s), 00/10 VUs, 3181 complete and 0 interrupted iterations
 default ✓ [======================================] 10 VUs  10s
 
+## K6 performance tests with 2 replicas after adding indexes and caching.
+
+### Getting questions:
+
+        script: get-questions.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 40s max duration (incl. graceful stop):
+              * default: 10 looping VUs for 10s (gracefulStop: 30s)
+
+
+     data_received..................: 90 MB  9.0 MB/s
+     data_sent......................: 2.2 MB 224 kB/s
+     http_req_blocked...............: avg=5.28µs  min=683ns    med=1.68µs max=2.15ms   p(90)=2.92µs   p(95)=3.66µs  
+     http_req_connecting............: avg=446ns   min=0s       med=0s     max=1.05ms   p(90)=0s       p(95)=0s      
+     http_req_duration..............: avg=4.5ms   min=710.64µs med=4.02ms max=422.1ms  p(90)=6.25ms   p(95)=7.15ms  
+       { expected_response:true }...: avg=4.5ms   min=710.64µs med=4.02ms max=422.1ms  p(90)=6.25ms   p(95)=7.15ms  
+     http_req_failed................: 0.00%  ✓ 0           ✗ 21493
+     http_req_receiving.............: avg=90.92µs min=12.97µs  med=36µs   max=6.83ms   p(90)=182.74µs p(95)=378.39µs
+     http_req_sending...............: avg=26.02µs min=3.69µs   med=8.04µs max=4.3ms    p(90)=18.59µs  p(95)=73.79µs 
+     http_req_tls_handshaking.......: avg=0s      min=0s       med=0s     max=0s       p(90)=0s       p(95)=0s      
+     http_req_waiting...............: avg=4.39ms  min=658.26µs med=3.9ms  max=421.94ms p(90)=6.09ms   p(95)=6.99ms  
+     http_reqs......................: 21493  2148.739805/s
+     iteration_duration.............: avg=4.62ms  min=758.33µs med=4.13ms max=422.41ms p(90)=6.38ms   p(95)=7.3ms   
+     iterations.....................: 21493  2148.739805/s
+     vus............................: 10     min=10        max=10 
+     vus_max........................: 10     min=10        max=10 
+
+
+running (10.0s), 00/10 VUs, 21493 complete and 0 interrupted iterations
+default ✓ [======================================] 10 VUs  10s
+
+### Getting courses:
+
+        script: get-courses.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 40s max duration (incl. graceful stop):
+              * default: 10 looping VUs for 10s (gracefulStop: 30s)
+
+
+     data_received..................: 14 MB  1.3 MB/s
+     data_sent......................: 2.3 MB 234 kB/s
+     http_req_blocked...............: avg=4.82µs  min=648ns    med=1.53µs  max=1.86ms   p(90)=2.72µs   p(95)=3.44µs  
+     http_req_connecting............: avg=259ns   min=0s       med=0s      max=823.18µs p(90)=0s       p(95)=0s      
+     http_req_duration..............: avg=3.75ms  min=774.71µs med=3.47ms  max=32.44ms  p(90)=5.51ms   p(95)=6.4ms   
+       { expected_response:true }...: avg=3.75ms  min=774.71µs med=3.47ms  max=32.44ms  p(90)=5.51ms   p(95)=6.4ms   
+     http_req_failed................: 0.00%  ✓ 0          ✗ 25711
+     http_req_receiving.............: avg=69.83µs min=9.86µs   med=27.13µs max=6.73ms   p(90)=131.17µs p(95)=286.57µs
+     http_req_sending...............: avg=25.77µs min=3.46µs   med=7.29µs  max=6.48ms   p(90)=17.38µs  p(95)=75.86µs 
+     http_req_tls_handshaking.......: avg=0s      min=0s       med=0s      max=0s       p(90)=0s       p(95)=0s      
+     http_req_waiting...............: avg=3.65ms  min=738.72µs med=3.38ms  max=32.41ms  p(90)=5.38ms   p(95)=6.27ms  
+     http_reqs......................: 25711  2570.42661/s
+     iteration_duration.............: avg=3.86ms  min=820.98µs med=3.58ms  max=32.47ms  p(90)=5.65ms   p(95)=6.56ms  
+     iterations.....................: 25711  2570.42661/s
+     vus............................: 10     min=10       max=10 
+     vus_max........................: 10     min=10       max=10 
+
+
+running (10.0s), 00/10 VUs, 25711 complete and 0 interrupted iterations
+default ✓ [======================================] 10 VUs  10s
+
+### Posting questions:
+
+        script: post-questions.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 40s max duration (incl. graceful stop):
+              * default: 10 looping VUs for 10s (gracefulStop: 30s)
+
+
+     data_received..................: 470 kB 47 kB/s
+     data_sent......................: 528 kB 53 kB/s
+     http_req_blocked...............: avg=8.07µs   min=804ns   med=2.27µs  max=2.47ms   p(90)=3.59µs   p(95)=4.28µs  
+     http_req_connecting............: avg=4.26µs   min=0s      med=0s      max=2.31ms   p(90)=0s       p(95)=0s      
+     http_req_duration..............: avg=37.67ms  min=4.58ms  med=29.43ms max=646.93ms p(90)=55.53ms  p(95)=71.86ms 
+       { expected_response:true }...: avg=37.67ms  min=4.58ms  med=29.43ms max=646.93ms p(90)=55.53ms  p(95)=71.86ms 
+     http_req_failed................: 0.00%  ✓ 0          ✗ 2639
+     http_req_receiving.............: avg=112.03µs min=11.14µs med=51.83µs max=6.47ms   p(90)=192.43µs p(95)=455.76µs
+     http_req_sending...............: avg=43.79µs  min=5.01µs  med=13.88µs max=7.73ms   p(90)=33.71µs  p(95)=153.44µs
+     http_req_tls_handshaking.......: avg=0s       min=0s      med=0s      max=0s       p(90)=0s       p(95)=0s      
+     http_req_waiting...............: avg=37.51ms  min=4.51ms  med=29.29ms max=646.85ms p(90)=55.42ms  p(95)=71.76ms 
+     http_reqs......................: 2639   263.153195/s
+     iteration_duration.............: avg=37.92ms  min=4.7ms   med=29.68ms max=647.09ms p(90)=55.91ms  p(95)=71.97ms 
+     iterations.....................: 2639   263.153195/s
+     vus............................: 10     min=10       max=10
+     vus_max........................: 10     min=10       max=10
+
+
+running (10.0s), 00/10 VUs, 2639 complete and 0 interrupted iterations
+default ✓ [======================================] 10 VUs  10s
+
 ### Conclusion
 
 Overall, while the system performs well under low load, the increase in replicas, particularly in write-heavy scenarios like posting questions, resulted in notable increases in response times and reduced throughput.
 
 It seems that the database was a bottleneck since increasing the replicas of the API and the LLM-API didn't increase the system performance. After adding the indexes the performance was much better. Getting questions and answers performed much better after adding indexes. Also adding questions performed better. This is due to that that the API has to do few SELECT queries for checking purposes before the insertions. The increase in performance is due to to performance improvements in the SELECT queries.
+
+After adding database indexes, caching was added to the application. Everything was cached and cache is set to flush when there is added a new question or answer to the database or a question or answer is upvoted. There was slight improvement in performance getting courses. Also slight improvement was in getting questions. There was a slight decrease in performance in adding questions after adding caching. This is expected as adding new question to the database requires flushing the cache so it generates some extra work.
