@@ -1,3 +1,5 @@
+## K6 performance tests:
+
 ### Posting questions with 1 replica:
 
      execution: local
@@ -249,6 +251,277 @@ running (10.0s), 00/10 VUs, 3761 complete and 0 interrupted iterations
 default ✓ [======================================] 10 VUs  10s
 
 
+### Database observations and adding indexes
+
+Database:
+
+                 List of relations
+ Schema |         Name          | Type  |  Owner   
+--------+-----------------------+-------+----------
+ public | answers               | table | username
+ public | courses               | table | username
+ public | flyway_schema_history | table | username
+ public | questions             | table | username
+ public | upvotes               | table | username
+
+
+Query:
+
+database=# EXPLAIN SELECT created_at FROM questions
+      WHERE user_id = '1'
+      ORDER BY created_at DESC
+      LIMIT 1;
+
+ Limit  (cost=58.98..58.99 rows=1 width=8)
+   ->  Sort  (cost=58.98..58.99 rows=4 width=8)
+         Sort Key: created_at DESC
+         ->  Seq Scan on questions  (cost=0.00..58.96 rows=4 width=8)
+               Filter: (user_id = '1'::text)
+(5 rows)
+
+
+Adding index:
+
+database=# CREATE INDEX idx_questions_user_created_at ON questions (user_id, created_at);
+
+Query again:
+
+database=# EXPLAIN SELECT created_at FROM questions
+      WHERE user_id = '1'
+      ORDER BY created_at DESC
+      LIMIT 1;
+
+ Limit  (cost=0.28..1.30 rows=1 width=8)
+   ->  Index Only Scan Backward using idx_questions_user_created_at on questions  (cost=0.28..4.35 rows=4 width=8)
+         Index Cond: (user_id = '1'::text)
+(3 rows)
+
+
+Conclusion:
+
+Performance increased substantically. Scan cost dropped from 58.96 to 4.35
+
+
+<br>
+
+
+Query:
+
+database=# EXPLAIN SELECT * FROM courses ORDER BY name ASC;
+
+ Sort  (cost=16.39..16.74 rows=140 width=552)
+   Sort Key: name
+   ->  Seq Scan on courses  (cost=0.00..11.40 rows=140 width=552)
+(3 rows)
+
+
+Create index:
+
+database=# CREATE INDEX idx_courses_name ON courses (name);
+
+Query again:
+
+database=# EXPLAIN SELECT * FROM courses ORDER BY name ASC;
+
+ Sort  (cost=1.08..1.09 rows=4 width=552)
+   Sort Key: name
+   ->  Seq Scan on courses  (cost=0.00..1.04 rows=4 width=552)
+(3 rows)
+
+Conclusion:
+
+Cost dropped from 16.74 to 1.04.
+
+
+<br>
+
+Query:
+
+database=# EXPLAIN SELECT q.*, COUNT(u.id) AS upvote_count
+FROM questions q
+LEFT JOIN upvotes u ON u.entity_type = 'question' AND u.entity_id = q.id
+WHERE q.course_id = 2
+GROUP BY q.id
+ORDER BY COALESCE(MAX(u.created_at), q.created_at) DESC, q.last_updated DESC
+LIMIT 1 OFFSET 20;
+
+ Limit  (cost=16.52..16.53 rows=1 width=90)
+   ->  Sort  (cost=16.52..16.52 rows=1 width=90)
+         Sort Key: (COALESCE(max(u.created_at), q.created_at)) DESC, q.last_updated DESC
+         ->  GroupAggregate  (cost=16.49..16.51 rows=1 width=90)
+               Group Key: q.id
+               ->  Sort  (cost=16.49..16.49 rows=1 width=86)
+                     Sort Key: q.id
+                     ->  Nested Loop Left Join  (cost=0.43..16.48 rows=1 width=86)
+                           ->  Index Scan using idx_questions_course_id on questions q  (cost=0.28..8.29 rows=1 width=74)
+                                 Index Cond: (course_id = 2)
+                           ->  Index Scan using idx_upvotes_entity on upvotes u  (cost=0.15..8.17 rows=1 width=16)
+                                 Index Cond: (((entity_type)::text = 'question'::text) AND (entity_id = q.id))
+
+
+Create index:
+
+database=# CREATE INDEX idx_upvotes_entity_created_at ON upvotes (entity_type, entity_id, created_at);
+
+Query again:
+
+database=# EXPLAIN SELECT q.*, COUNT(u.id) AS upvote_count
+FROM questions q
+LEFT JOIN upvotes u ON u.entity_type = 'question' AND u.entity_id = q.id
+WHERE q.course_id = 2
+GROUP BY q.id
+ORDER BY COALESCE(MAX(u.created_at), q.created_at) DESC, q.last_updated DESC
+LIMIT 1 OFFSET 20;
+
+ Limit  (cost=9.51..9.51 rows=1 width=90)
+   ->  Sort  (cost=9.50..9.51 rows=1 width=90)
+         Sort Key: (COALESCE(max(u.created_at), q.created_at)) DESC, q.last_updated DESC
+         ->  GroupAggregate  (cost=9.47..9.49 rows=1 width=90)
+               Group Key: q.id
+               ->  Sort  (cost=9.47..9.47 rows=1 width=86)
+                     Sort Key: q.id
+                     ->  Nested Loop Left Join  (cost=0.28..9.46 rows=1 width=86)
+                           Join Filter: (u.entity_id = q.id)
+                           ->  Index Scan using idx_questions_course_id on questions q  (cost=0.28..8.29 rows=1 width=74)
+                                 Index Cond: (course_id = 2)
+                           ->  Seq Scan on upvotes u  (cost=0.00..1.15 rows=1 width=16)
+                                 Filter: ((entity_type)::text = 'question'::text)
+(13 rows)
+
+Conclusion:
+
+Cost dropped from 16.53 to 9.51
+
+<br>
+
+Query:
+
+database=# EXPLAIN       SELECT created_at FROM answers
+      WHERE user_id = '2'
+      ORDER BY created_at DESC
+      LIMIT 1;
+
+ Limit  (cost=14.29..14.30 rows=1 width=8)
+   ->  Sort  (cost=14.29..14.30 rows=4 width=8)
+         Sort Key: created_at DESC
+         ->  Seq Scan on answers  (cost=0.00..14.28 rows=4 width=8)
+               Filter: (user_id = '2'::text)
+
+Create index:
+
+database=# CREATE INDEX idx_answers_user_id_created_at ON answers (user_id, created_at);
+
+Query again:
+
+database=# EXPLAIN       SELECT created_at FROM answers
+      WHERE user_id = '2'
+      ORDER BY created_at DESC
+      LIMIT 1;
+
+ Limit  (cost=0.14..4.00 rows=1 width=8)
+   ->  Index Only Scan Backward using idx_answers_user_id_created_at on answers  (cost=0.14..11.70 rows=3 width=8)
+         Index Cond: (user_id = '2'::text)
+
+Conclusion:
+
+Cost dropped from 14.30 to 4.00
+
+## K6 performance tests with 2 replicas of API and LLM-API after adding the indexes above
+
+### Getting questions:
+
+     execution: local
+        script: get-questions.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 40s max duration (incl. graceful stop):
+              * default: 10 looping VUs for 10s (gracefulStop: 30s)
+
+
+     data_received..................: 6.4 MB 637 kB/s
+     data_sent......................: 2.0 MB 195 kB/s
+     http_req_blocked...............: avg=4.96µs  min=669ns    med=1.6µs   max=1.77ms   p(90)=2.96µs   p(95)=3.7µs   
+     http_req_connecting............: avg=363ns   min=0s       med=0s      max=998.11µs p(90)=0s       p(95)=0s      
+     http_req_duration..............: avg=5.18ms  min=886.44µs med=4.28ms  max=834.45ms p(90)=6.72ms   p(95)=7.66ms  
+       { expected_response:true }...: avg=5.18ms  min=886.44µs med=4.28ms  max=834.45ms p(90)=6.72ms   p(95)=7.66ms  
+     http_req_failed................: 0.00%  ✓ 0           ✗ 18791
+     http_req_receiving.............: avg=72.53µs min=10.18µs  med=27.87µs max=5.57ms   p(90)=131.75µs p(95)=298.21µs
+     http_req_sending...............: avg=24.72µs min=3.57µs   med=7.6µs   max=5.4ms    p(90)=17.32µs  p(95)=61.21µs 
+     http_req_tls_handshaking.......: avg=0s      min=0s       med=0s      max=0s       p(90)=0s       p(95)=0s      
+     http_req_waiting...............: avg=5.08ms  min=809.69µs med=4.19ms  max=833.76ms p(90)=6.59ms   p(95)=7.54ms  
+     http_reqs......................: 18791  1878.366531/s
+     iteration_duration.............: avg=5.29ms  min=1.05ms   med=4.38ms  max=834.52ms p(90)=6.84ms   p(95)=7.79ms  
+     iterations.....................: 18791  1878.366531/s
+     vus............................: 10     min=10        max=10 
+     vus_max........................: 10     min=10        max=10 
+
+
+running (10.0s), 00/10 VUs, 18791 complete and 0 interrupted iterations
+default ✓ [======================================] 10 VUs  10s
+
+
+### Getting courses
+
+        script: get-courses.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 40s max duration (incl. graceful stop):
+              * default: 10 looping VUs for 10s (gracefulStop: 30s)
+
+
+     data_received..................: 13 MB  1.3 MB/s
+     data_sent......................: 2.2 MB 218 kB/s
+     http_req_blocked...............: avg=5.51µs  min=668ns    med=1.56µs  max=2.26ms  p(90)=2.86µs   p(95)=3.61µs  
+     http_req_connecting............: avg=282ns   min=0s       med=0s      max=1.22ms  p(90)=0s       p(95)=0s      
+     http_req_duration..............: avg=4.03ms  min=975.41µs med=3.85ms  max=20.75ms p(90)=5.77ms   p(95)=6.45ms  
+       { expected_response:true }...: avg=4.03ms  min=975.41µs med=3.85ms  max=20.75ms p(90)=5.77ms   p(95)=6.45ms  
+     http_req_failed................: 0.00%  ✓ 0          ✗ 23937
+     http_req_receiving.............: avg=71.58µs min=10.26µs  med=26.62µs max=7.57ms  p(90)=130.78µs p(95)=307.82µs
+     http_req_sending...............: avg=26.09µs min=3.42µs   med=7.16µs  max=7.35ms  p(90)=16.57µs  p(95)=60.99µs 
+     http_req_tls_handshaking.......: avg=0s      min=0s       med=0s      max=0s      p(90)=0s       p(95)=0s      
+     http_req_waiting...............: avg=3.94ms  min=933µs    med=3.75ms  max=20.71ms p(90)=5.64ms   p(95)=6.32ms  
+     http_reqs......................: 23937  2392.84835/s
+     iteration_duration.............: avg=4.15ms  min=1.04ms   med=3.96ms  max=20.81ms p(90)=5.89ms   p(95)=6.6ms   
+     iterations.....................: 23937  2392.84835/s
+     vus............................: 10     min=10       max=10 
+     vus_max........................: 10     min=10       max=10 
+
+
+running (10.0s), 00/10 VUs, 23937 complete and 0 interrupted iterations
+default ✓ [======================================] 10 VUs  10s
+
+### Posting questions:
+
+        script: post-questions.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 40s max duration (incl. graceful stop):
+              * default: 10 looping VUs for 10s (gracefulStop: 30s)
+
+
+     data_received..................: 565 kB 56 kB/s
+     data_sent......................: 636 kB 64 kB/s
+     http_req_blocked...............: avg=8.66µs   min=848ns   med=2.38µs  max=2.85ms   p(90)=3.92µs  p(95)=4.86µs  
+     http_req_connecting............: avg=1.05µs   min=0s      med=0s      max=763.77µs p(90)=0s      p(95)=0s      
+     http_req_duration..............: avg=31.12ms  min=6.19ms  med=28.18ms max=126.25ms p(90)=44.58ms p(95)=53.18ms 
+       { expected_response:true }...: avg=31.12ms  min=6.19ms  med=28.18ms max=126.25ms p(90)=44.58ms p(95)=53.18ms 
+     http_req_failed................: 0.00%  ✓ 0          ✗ 3181
+     http_req_receiving.............: avg=132.46µs min=10.23µs med=50.14µs max=6.01ms   p(90)=245.4µs p(95)=581.65µs
+     http_req_sending...............: avg=52.46µs  min=4.76µs  med=13.9µs  max=4.54ms   p(90)=52.76µs p(95)=217.88µs
+     http_req_tls_handshaking.......: avg=0s       min=0s      med=0s      max=0s       p(90)=0s      p(95)=0s      
+     http_req_waiting...............: avg=30.93ms  min=6.12ms  med=27.97ms max=126.17ms p(90)=44.25ms p(95)=53.08ms 
+     http_reqs......................: 3181   317.352322/s
+     iteration_duration.............: avg=31.44ms  min=6.34ms  med=28.46ms max=127.32ms p(90)=44.83ms p(95)=53.68ms 
+     iterations.....................: 3181   317.352322/s
+     vus............................: 10     min=10       max=10
+     vus_max........................: 10     min=10       max=10
+
+
+running (10.0s), 00/10 VUs, 3181 complete and 0 interrupted iterations
+default ✓ [======================================] 10 VUs  10s
+
 ### Conclusion
 
-Overall, while the system performs well under low load, the increase in replicas, particularly in write-heavy scenarios like posting questions, resulted in notable increases in response times and reduced throughput
+Overall, while the system performs well under low load, the increase in replicas, particularly in write-heavy scenarios like posting questions, resulted in notable increases in response times and reduced throughput.
+
+It seems that the database was a bottleneck since increasing the replicas of the API and the LLM-API didn't increase the system performance. After adding the indexes the performance was much better. Getting questions and answers performed much better after adding indexes. Also adding questions performed better. This is due to that that the API has to do few SELECT queries for checking purposes before the insertions. The increase in performance is due to to performance improvements in the SELECT queries.

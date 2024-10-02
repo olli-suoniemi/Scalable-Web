@@ -42,39 +42,6 @@ Subsequent runs can be executed with:
 docker compose up
 ```
 
-#### Debugging tips
-
-1. Clear cache:
-
-```bash
-sudo npm cache clean --force
-sudo rm -rf node_modules package-lock.json
-npm install
-```
-
-<br>
-
-2. Clear docker containers and build app:
-
-```bash
-docker system prune -a
-docker compose up --build
-```
-
-<br>
-
-3. docker exec -it 24-project-ii-qa-ui-1 /bin/sh
-
-<br>
-
-4. netstat -tuln
-
-<br>
-
-5. Check that there is local address 0.0.0.0:3000. If not, or it is something else (like 0.0.0.0:4321) then change the server qa-ui:3000 in nginx.prod.conf to server qa-ui:4321 and restart the production build.
-
-<br>
-
 ## Running Instructions for Production Environment
 
 
@@ -112,3 +79,70 @@ docker compose down
 ```bash
 docker compose --profile migrate --profile pgadmin up
 ```
+
+next:
+
+database optimization: https://fitech101.aalto.fi/designing-and-building-scalable-web-applications/dab-16-data-and-scalability/2-database-indexes/
+
+kuberentes
+
+monitoring
+
+#### Debugging,troubleshooting and database querying
+
+- Clear cache:
+
+```bash
+sudo npm cache clean --force
+sudo rm -rf node_modules package-lock.json
+npm install
+```
+
+<br>
+
+- Clear docker containers and build app:
+
+```bash
+docker system prune -a
+docker compose up --build
+```
+
+<br>
+
+- If app is not available at localhost:7800.
+
+```bash
+docker ps
+```
+
+```bash
+docker exec -it 24-project-ii-qa-ui-1 /bin/sh
+```
+
+```bash
+netstat -tuln
+```
+
+- Check that there is local address 0.0.0.0:3000. If not, or it is something else (like 0.0.0.0:4321) then change the server qa-ui:3000 in nginx.prod.conf to server qa-ui:4321 and restart the production build.
+
+<br>
+
+- Database querying
+
+```bash
+docker ps
+```
+
+```bash
+docker exec database-server... -it /bin/sh
+```
+
+```bash
+psql
+```
+
+```bash
+\dt
+```
+
+
