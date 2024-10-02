@@ -137,7 +137,7 @@ export const getAnswersByQuestionId = async (questionID, page, limit) => {
   const offset = (page - 1) * limit;
   try {
     const result = await sql`
-      SELECT a.*, COUNT(u.id) AS upvotes, COALESCE(MAX(u.created_at), a.created_at) AS recent_time
+      SELECT a.*, COUNT(u.id) AS upvote_count, COALESCE(MAX(u.created_at), a.created_at) AS recent_time
       FROM answers a
       LEFT JOIN upvotes u ON u.entity_type = 'answer' AND u.entity_id = a.id
       WHERE a.question_id = ${questionID}

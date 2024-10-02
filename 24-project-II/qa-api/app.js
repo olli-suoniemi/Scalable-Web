@@ -132,7 +132,8 @@ const handlePostQuestion = async (request) => {
                 user_id: 'LLM',
                 created_at: createdAt,
                 last_updated: lastUpdated,
-                is_llm_generated: true
+                is_llm_generated: true,
+                upvote_count: 0
               }
               await publisherClient.publish(resultChannel, JSON.stringify(resultAnswer));
               console.log(`Answer of ID ${answerID} published to channel ${resultChannel}`);
@@ -239,7 +240,7 @@ const handlePostAnswer = async (request) => {
         created_at: createdAt,
         last_updated: lastUpdated,
         is_llm_generated: false,
-        upvotes: 0
+        upvote_count: 0
       }
       const publishResult = await publisherClient.publish(
         resultChannel, 
