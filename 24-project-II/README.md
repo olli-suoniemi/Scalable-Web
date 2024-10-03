@@ -80,14 +80,6 @@ docker compose down
 docker compose --profile migrate --profile pgadmin up
 ```
 
-next:
-
-database optimization: https://fitech101.aalto.fi/designing-and-building-scalable-web-applications/dab-16-data-and-scalability/2-database-indexes/
-
-kuberentes
-
-monitoring
-
 #### Debugging,troubleshooting and database querying
 
 - Clear cache:
@@ -146,3 +138,177 @@ psql
 ```
 
 
+## Kubernetes
+
+minikube addons list
+
+### Building images:
+
+### in flyway folder
+
+minikube image build -t database-migrations -f ./Dockerfile .
+
+### in qa-api folder
+
+minikube image build -t qa-api -f ./Dockerfile.prod .
+
+### in llm-api folder
+
+minikube image build -t llm-api -f ./Dockerfile .
+
+### in qa-ui folder
+
+minikube image build -t qa-ui -f ./Dockerfile.prod .
+
+### in websocket folder
+
+minikube image build -t websocket -f ./Dockerfile .
+
+### Nginx and Redis
+
+No need to build custom Docker images for them
+
+
+### Deploying
+
+minikube start --cpus 4 --memory 8192
+
+kubectl create namespace production
+
+kubectl delete events --all -n production
+
+
+minikube addons enable ingress
+
+kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.19/releases/cnpg-1.19.1.yaml
+
+kubectl apply -f kubernetes/components.yaml
+
+kubectl get pods -n kube-system
+
+
+kubectl apply -f kubernetes/database-cluster.yaml
+
+kubectl get cluster -n production
+
+kubectl cnpg status database-cluster -n production
+
+minikube image build -t database-migrations -f ./Dockerfile .
+
+kubectl apply -f kubernetes/database-migration-job.yaml
+
+kubectl get pods -n production --watch
+
+kubectl describe pod database-cluster-1 -n production
+
+kubectl cnpg psql database-cluster -n production
+
+\c app
+
+kubectl apply -f kubernetes/redis-deployment.yaml
+kubectl apply -f kubernetes/redis-service.yaml
+
+minikube image build -t llm-api -f ./Dockerfile .
+
+kubectl apply -f kubernetes/llm-api-deployment-hpa.yaml
+kubectl apply -f kubernetes/llm-api-deployment.yaml
+kubectl apply -f kubernetes/llm-api-service.yaml
+
+minikube image build -t qa-api -f ./Dockerfile.prod .
+
+kubectl apply -f kubernetes/qa-api-app.yaml
+
+minikube service qa-api-service --url -n production
+
+minikube image build -t qa-ui -f ./Dockerfile.prod .
+
+kubectl apply -f kubernetes/qa-ui-deployment.yaml
+kubectl apply -f kubernetes/qa-ui-service.yaml
+
+minikube image build -t websocket -f ./Dockerfile .
+
+kubectl apply -f kubernetes/websocket-deployment.yaml
+kubectl apply -f kubernetes/websocket-service.yaml
+
+    
+kubectl get all -n production
+
+kubectl apply -f kubernetes/ingress.yaml
+
+kubectl get ingress -n production --watch
+
+### Redeploy
+
+kubectl rollout restart deployment/qa-api-deployment -n production
+
+kubectl rollout restart cluster/database-cluster -n production
+
+kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx
+
+kubectl delete deployment ingress-nginx-controller -n ingress-nginx
+kubectl delete ingressclass nginx
+
+### Get pods
+
+kubectl get pods
+
+kubectl get pods -n ingress-nginx
+
+### Get logs
+
+kubectl logs 
+
+kubectl logs ingress-nginx-controller-6d498b67d9-6r58m -n ingress-nginx
+
+### Describe pod
+
+kubectl describe pod
+
+
+### Deleting the service and the deployment
+
+kubectl delete -f kubernetes/database-cluster.yaml
+kubectl delete -f kubernetes/database-migration-job.yaml
+kubectl delete -f kubernetes/redis-deployment.yaml
+kubectl delete -f kubernetes/redis-service.yaml
+kubectl delete -f kubernetes/llm-api-deployment-hpa.yaml
+kubectl delete -f kubernetes/llm-api-deployment.yaml
+kubectl delete -f kubernetes/llm-api-service.yaml
+kubectl delete -f kubernetes/qa-api-app.yaml
+
+kubectl delete -f kubernetes/qa-ui-deployment.yaml
+kubectl delete -f kubernetes/qa-ui-service.yaml
+kubectl delete -f kubernetes/websocket-deployment.yaml
+kubectl delete -f kubernetes/websocket-service.yaml
+kubectl delete -f kubernetes/nginx-app.yaml
+kubectl delete -f kubernetes/nginx-ingress.yaml
+
+### Get deployments
+
+kubectl get deployments
+
+### Delete deployment
+
+kubectl delete deployment <name>
+
+### Detele pod 
+
+kubectl delete pod <name-id>
+
+### Check status
+
+kubectl cnpg status database-cluster
+
+### Describing secrets
+
+kubectl describe secret database-cluster-app
+
+### PSQL
+
+kubectl cnpg psql database-cluster
+
+### Getting the url
+
+minikube service nginx-app --url
+
+monitoring

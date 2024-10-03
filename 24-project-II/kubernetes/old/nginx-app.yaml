@@ -1,0 +1,111 @@
+# nginx-app.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    worker_processes 1;
+
+    events {
+      worker_connections 1024;
+    }
+
+    http {
+      proxy_cache_path /var/cache/nginx keys_zone=astro_ssg_cache:1m inactive=5m max_size=512m;
+      
+      upstream qa-api {
+          server qa-api-service:7777;
+      }
+
+      upstream qa-ui {
+          server qa-ui-service:3000;
+      }
+
+      upstream websocket {
+          server websocket-service:7788;
+      }
+
+      server {
+        gzip on;
+        gzip_types text/css application/javascript application/json image/svg+xml;
+        gzip_min_length 1000;
+        
+        listen 80;
+
+        location /api/ {
+          proxy_pass http://qa-api/;
+          proxy_buffering off;
+          proxy_read_timeout 3600s;
+          proxy_send_timeout 3600s;
+          keepalive_timeout 3600s;
+
+          proxy_http_version 1.1;
+          proxy_set_header Connection "";
+          add_header Cache-Control 'no-store';
+        }
+
+        location / {
+          proxy_pass http://qa-ui;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "Upgrade";
+          proxy_set_header Host $host;
+
+          proxy_cache astro_ssg_cache;
+          proxy_cache_key $uri;
+          proxy_cache_valid 5m;
+        }
+
+        # WebSocket proxy configuration
+        location /ws/ {
+          proxy_pass http://websocket;
+          proxy_http_version 1.1;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection "Upgrade";
+          proxy_set_header Host $host;
+        }
+      }
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-app
+  labels:
+    app: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80   # This is the port NGINX listens on
+          volumeMounts:
+            - name: nginx-config-volume
+              mountPath: /etc/nginx/nginx.conf  # Path where NGINX expects its config file
+              subPath: nginx.conf  # Reference the key in the ConfigMap
+      volumes:
+        - name: nginx-config-volume
+          configMap:
+            name: nginx-config  # Reference the ConfigMap created above
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - port: 7800      # The port that will be exposed
+      targetPort: 80  # Maps to the port NGINX listens on inside the container
