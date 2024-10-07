@@ -1,9 +1,16 @@
 import { connect } from "../deps.js";
 
+// Use for kubernetes
 const redis = await connect({
-  hostname: "redis",
+  hostname: 'redis-service.production.svc.cluster.local',
   port: 6379,
 });
+
+// Use for docker compose
+// const redis = await connect({
+//   hostname: "redis",
+//   port: 6379,
+// });
 
 const cacheMethodCalls = (object, methodsToFlushCacheWith = []) => {
   const handler = {

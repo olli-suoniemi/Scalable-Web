@@ -1,14 +1,26 @@
 import * as questionService from "./services/questionsService.js";
 import { cacheMethodCalls } from "./util/cacheUtil.js";
-import { createClient } from "npm:redis@4.6.4";
+import { createClient } from "npm:redis";
 
-// Redis Publisher Client
+// Use for kubernetes
 const publisherClient = createClient({
-  url: "redis://redis:6379", 
+  socket: {
+    host: 'redis-service.production.svc.cluster.local',
+    port: 6379,
+  },
   pingInterval: 1000,
 });
+ 
+// Use for docker compose
+// const publisherClient = createClient({
+//   url: "redis://redis:6379", 
+//   pingInterval: 1000,
+// });
 
+publisherClient.on('error', (err) => console.error('Redis Client Error', err));
 await publisherClient.connect();
+
+console.log("Connected to Redis successfully");
 
 // set cached methods calls and set the cache to flush when one of the methods in the list is called
 const cachedQuestionService = cacheMethodCalls(questionService, ["addQuestion", "addAnswer", "upvoteQuestion", "upvoteAnswer"]);
@@ -93,7 +105,7 @@ const handlePostQuestion = async (request) => {
 
         // Call the LLM API three times to get three answers
         for (let i = 0; i < 3; i++) {
-          const llmResponse = await fetch("http://llm-api:7000/", {
+          const llmResponse = await fetch("http://llm-api-service.production.svc.cluster.local:7000/", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -329,3 +341,6 @@ const handleRequest = async (request) => {
 // Start the server
 const portConfig = { port: 7777, hostname: "0.0.0.0" };
 Deno.serve(portConfig, handleRequest);
+
+console.log('qa-api running on', portConfig);
+

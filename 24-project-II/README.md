@@ -225,7 +225,7 @@ minikube image build -t qa-ui -f ./Dockerfile.prod .
 kubectl apply -f kubernetes/qa-ui-deployment.yaml
 kubectl apply -f kubernetes/qa-ui-service.yaml
 
-minikube image build -t websocket -f ./Dockerfile .
+minikube image build -t websocket -f ./Dockerfile.prod .
 
 kubectl apply -f kubernetes/websocket-deployment.yaml
 kubectl apply -f kubernetes/websocket-service.yaml
@@ -239,7 +239,9 @@ kubectl get ingress -n production --watch
 
 ### Redeploy
 
+kubectl rollout restart deployment/websocket-deployment -n production
 kubectl rollout restart deployment/qa-api-deployment -n production
+kubectl rollout restart deployment/qa-ui-deployment -n production
 
 kubectl rollout restart cluster/database-cluster -n production
 
@@ -312,3 +314,13 @@ kubectl cnpg psql database-cluster
 minikube service nginx-app --url
 
 monitoring
+
+
+
+EDITABLE:
+
+qa-api/app.js
+
+websocket/app.js
+
+astro.config.mjs

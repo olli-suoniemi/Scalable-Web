@@ -4,8 +4,10 @@ metadata:
   name: websocket-service
   namespace: production
 spec:
+  type: LoadBalancer
   ports:
     - port: 7788
       targetPort: 7788
+      protocol: TCP
   selector:
     app: websocket

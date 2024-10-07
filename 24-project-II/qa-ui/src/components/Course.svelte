@@ -20,7 +20,7 @@
   let manualClose = false; // Track if the WebSocket was closed manually
   
   const setupWebSocket = () => {
-    const wsUrl = `ws://localhost:7788/ws?course=${courseId}`;
+    const wsUrl = `wss://local.production/ws?course=${courseId}`;
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

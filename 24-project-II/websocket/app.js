@@ -1,11 +1,20 @@
-import { createClient } from "npm:redis@4.6.4";
+import { createClient } from "npm:redis"
 import { serve } from "https://deno.land/std@0.222.1/http/server.ts";
 
-// Set up Redis client
+// Use for kubernetes
 const redisClient = createClient({
-  url: "redis://redis:6379",
+  socket: {
+    host: 'redis-service.production.svc.cluster.local',
+    port: 6379,
+  },
   pingInterval: 1000,
 });
+ 
+// Use for docker compose
+// const redisClient = createClient({
+//   url: "redis://redis:6379", 
+//   pingInterval: 1000,
+// });
 
 await redisClient.connect();
 
@@ -80,5 +89,5 @@ const handleRequest = async (request) => {
 
 // Serve WebSocket on port 7788
 serve(handleRequest, { port: 7788 });
-console.log("WebSocket server running on ws://localhost:7788");
+console.log("WebSocket server running on wss://localhost:7788");
 
