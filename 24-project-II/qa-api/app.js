@@ -1,21 +1,26 @@
 import * as questionService from "./services/questionsService.js";
 import { cacheMethodCalls } from "./util/cacheUtil.js";
 import { createClient } from "npm:redis";
+import { serve } from "https://deno.land/std@0.222.1/http/server.ts";
+
+let publisherClient = ""
 
 // Use for kubernetes
-const publisherClient = createClient({
-  socket: {
-    host: 'redis-service.production.svc.cluster.local',
-    port: 6379,
-  },
-  pingInterval: 1000,
-});
- 
-// Use for docker compose
-// const publisherClient = createClient({
-//   url: "redis://redis:6379", 
-//   pingInterval: 1000,
-// });
+if (process.env.KUBERNETES) {
+  publisherClient = createClient({
+    socket: {
+      host: 'redis-service.production.svc.cluster.local',
+      port: 6379,
+    },
+    pingInterval: 1000,
+  });
+} else {
+  // Use for docker compose
+  publisherClient = createClient({
+    url: "redis://redis:6379", 
+    pingInterval: 1000,
+  });
+}
 
 publisherClient.on('error', (err) => console.error('Redis Client Error', err));
 await publisherClient.connect();
@@ -103,9 +108,15 @@ const handlePostQuestion = async (request) => {
         // Array to hold the generated answers
         const generatedAnswers = [];
 
+        let llmUrl = "http://llm-api:7000/";
+
+        if (process.env.KUBERNETES) {
+          llmUrl = "http://llm-api-service.production.svc.cluster.local:7000/"
+        }
+
         // Call the LLM API three times to get three answers
         for (let i = 0; i < 3; i++) {
-          const llmResponse = await fetch("http://llm-api-service.production.svc.cluster.local:7000/", {
+          const llmResponse = await fetch(llmUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -339,8 +350,13 @@ const handleRequest = async (request) => {
 };
 
 // Start the server
-const portConfig = { port: 7777, hostname: "0.0.0.0" };
-Deno.serve(portConfig, handleRequest);
+const port = 7777
+serve(handleRequest, { port: port });
 
-console.log('qa-api running on', portConfig);
+if (process.env.KUBERNETES) {
+  console.log(`QA-API running on wss://local.production:${port}`);
+} else {
+  console.log(`QA-API running on wss://localhost:${port}`);
+}
+
 

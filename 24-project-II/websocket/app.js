@@ -1,20 +1,25 @@
 import { createClient } from "npm:redis"
 import { serve } from "https://deno.land/std@0.222.1/http/server.ts";
 
+
+let redisClient = ""
+
 // Use for kubernetes
-const redisClient = createClient({
-  socket: {
-    host: 'redis-service.production.svc.cluster.local',
-    port: 6379,
-  },
-  pingInterval: 1000,
-});
- 
-// Use for docker compose
-// const redisClient = createClient({
-//   url: "redis://redis:6379", 
-//   pingInterval: 1000,
-// });
+if (process.env.KUBERNETES) {
+  redisClient = createClient({
+    socket: {
+      host: 'redis-service.production.svc.cluster.local',
+      port: 6379,
+    },
+    pingInterval: 1000,
+  });
+} else {
+  // Use for docker compose
+  redisClient = createClient({
+    url: "redis://redis:6379", 
+    pingInterval: 1000,
+  });
+}
 
 await redisClient.connect();
 
@@ -88,6 +93,12 @@ const handleRequest = async (request) => {
 };
 
 // Serve WebSocket on port 7788
-serve(handleRequest, { port: 7788 });
-console.log("WebSocket server running on wss://localhost:7788");
 
+const port = 7788
+serve(handleRequest, { port: port });
+
+if (process.env.KUBERNETES) {
+  console.log(`WebSocket server running on wss://local.production:${port}`);
+} else {
+  console.log(`WebSocket server running on wss://localhost:${port}`);
+}

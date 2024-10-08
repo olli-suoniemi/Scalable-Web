@@ -3,6 +3,7 @@
   import CourseItem from '../components/CourseItem.svelte';
 
   let courses = [];
+  let loading = true; // Track the loading state
 
   // Fetch available courses from the API when the component mounts
   onMount(async () => {
@@ -12,16 +13,22 @@
         throw new Error('Failed to fetch courses');
       }
       courses = await response.json();
-      
     } catch (error) {
       console.error(error);
+    } finally {
+      loading = false; // Set loading to false regardless of success or failure
     }
   });
 </script>
 
 <h1 class="text-2xl font-bold mb-4">Available Courses</h1>
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-  {#each courses as course (course.id)}
-    <CourseItem course={course} />
-  {/each}
-</div>
+
+{#if loading}
+  <p>Loading courses...</p>
+{:else}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {#each courses as course (course.id)}
+      <CourseItem course={course} />
+    {/each}
+  </div>
+{/if}

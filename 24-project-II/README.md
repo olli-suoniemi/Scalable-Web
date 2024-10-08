@@ -21,20 +21,63 @@ docker compose run --rm --entrypoint=npx e2e-playwright playwright test
 
 <br>
 
-## Running Instructions for Development Environment
+## Running Instructions for Development Environment with Docker
 
-1. Navigate to the `qa-ui` directory and install dependencies:
+Navigate to the `qa-ui` directory and install dependencies:
 
 ```bash
 npm i
 ```
 <br>
 
-2. From the root directory of the project, start the services:
+Edit the `astro.config.mjs`, comment out line
+
+```bash
+import node from "@astrojs/node"; 
+```
+
+and
+
+```bash
+adapter: node({ mode: 'standalone' })
+```
+
+
+Edit the `Course.svelte`, comment out line
+
+```bash
+let wsUrl = `wss://local.production/ws?course=${courseId}`;
+```
+
+and uncomment line
+
+```bash
+let wsUrl = `wss://localhost:7788/ws?course=${courseId}`;
+```
+
+<br>
+
+Edit the `Question.svelte`, comment out line 
+
+```bash
+let wsUrl = `wss://local.production/ws?question=${questionId}`;
+```
+
+and uncomment line
+
+```bash
+let wsUrl = `wss://localhost:7788/ws?question=${questionId}`;
+```
+
+<br>
+
+From the root directory of the project, start the services:
 
 ```bash
 docker compose up --build
 ```
+
+<br>
 
 Subsequent runs can be executed with:
 
@@ -42,285 +85,496 @@ Subsequent runs can be executed with:
 docker compose up
 ```
 
-## Running Instructions for Production Environment
+## Running Instructions for Production Environment with Docker
 
-
-1. Navigate to the `qa-ui` directory and install dependencies:
+Navigate to the `qa-ui` directory and install dependencies:
 
 ```bash
 npm i
 ```
 <br>
 
-2. Uncomment the marked lines in qa-ui/astro.config.mjs
-
-<br>
-
-2. From the root directory of the project, launch the application, creating it as a daemon:
+Edit the `astro.config.mjs`, uncomment line
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+import node from "@astrojs/node"; 
+```
+
+and
+
+```bash
+adapter: node({ mode: 'standalone' })
+```
+
+
+Edit the `Course.svelte`, comment out line
+
+```bash
+let wsUrl = `wss://local.production/ws?course=${courseId}`;
+```
+
+and uncomment line
+
+```bash
+let wsUrl = `wss://localhost:7788/ws?course=${courseId}`;
 ```
 
 <br>
 
-4. To stop the application:
+Edit the `Question.svelte`, comment out line 
 
 ```bash
-docker compose down
+let wsUrl = `wss://local.production/ws?question=${questionId}`;
+```
+
+and uncomment line
+
+```bash
+let wsUrl = `wss://localhost:7788/ws?question=${questionId}`;
+```
+
+
+<br>
+
+From the root directory of the project, launch the application:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build
+```
+<br>
+
+Subsequent runs can be executed with:
+
+```bash
+docker compose -f docker-compose.prod.yml up
 ```
 
 <br>
 
 ## Running Instructions for Flyway Migrations and Database Admin
 
-1. From the root directory of the project, run the project with the migrate profile and the pgadmin profile:
+From the root directory of the project, run the project with the migrate profile and the pgadmin profile:
 
 ```bash
 docker compose --profile migrate --profile pgadmin up
 ```
 
-#### Debugging,troubleshooting and database querying
+<br>
 
-- Clear cache:
+## Debugging and troubleshooting
+
+Clear cache:
 
 ```bash
 sudo npm cache clean --force
+
 sudo rm -rf node_modules package-lock.json
+
 npm install
 ```
 
 <br>
 
-- Clear docker containers and build app:
+Clear docker containers and build app:
 
 ```bash
 docker system prune -a
+
 docker compose up --build
 ```
 
 <br>
 
-- If app is not available at localhost:7800.
+If app is not available at localhost:7800.
 
 ```bash
 docker ps
-```
 
-```bash
 docker exec -it 24-project-ii-qa-ui-1 /bin/sh
-```
 
-```bash
 netstat -tuln
 ```
 
-- Check that there is local address 0.0.0.0:3000. If not, or it is something else (like 0.0.0.0:4321) then change the server qa-ui:3000 in nginx.prod.conf to server qa-ui:4321 and restart the production build.
+Check that there is local address 0.0.0.0:3000. If not, or it is something else (like 0.0.0.0:4321) then change the server qa-ui:3000 in nginx.prod.conf to server qa-ui:4321 and restart the production build.
 
 <br>
 
-- Database querying
+Database querying
 
 ```bash
 docker ps
-```
 
-```bash
 docker exec database-server... -it /bin/sh
-```
 
-```bash
 psql
-```
 
-```bash
 \dt
 ```
 
+## Running Instructions for Production Environment with Kubernetes
 
-## Kubernetes
+### Starting up and setting configurations
 
+Starting Minikube
+
+```bash
+minikube start --cpus 4 --memory 8192
+```
+
+<br>
+
+Enable Ingress addon
+
+```bash
+minikube addons enable ingress
+```
+
+<br>
+
+Enable Clounative postgress addon
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.19/releases/cnpg-1.19.1.yaml
+```
+
+<br>
+
+Enable Prometheus operator
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml
+```
+
+If you run into the error The CustomResourceDefinition "prometheuses.monitoring.coreos.com" is invalid: metadata.annotations: Too long: must have at most 262144 bytes, then run the following command:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml --force-conflicts=true --server-side=true
+```
+
+<br>
+
+Enable metrics-server addon
+
+```bash
+kubectl apply -f kubernetes/components.yaml
+```
+
+<br>
+
+Listing all addons
+
+```bash
 minikube addons list
+```
+
+Verify that `ingress` is enabled  
+
+<br>
+
+Get pods
+
+```bash
+kubectl get pods -n kube-system
+```
+
+Verify that metrics-server is running
+
+<br>
+
+
+Create `production` namespace
+
+```bash
+kubectl create namespace production
+```
+
+<br>
+
+Get minikube IP and set it to the hosts file
+
+```bash
+minikube ip
+```
+
+<br>
+
+Add new host `local.production` specifying it with the minikube IP. In Linux/Mac the hosts file is in `/etc/hosts`
+
+### Modify files:
+
+Navigate to the `qa-ui` directory
+
+Edit the `astro.config.mjs`, uncomment line
+
+```bash
+import node from "@astrojs/node"; 
+```
+
+and
+
+```bash
+adapter: node({ mode: 'standalone' })
+```
+
+
+Edit the `Course.svelte`, uncomment line
+
+```bash
+let wsUrl = `wss://local.production/ws?course=${courseId}`;
+```
+
+and comment out line
+
+```bash
+let wsUrl = `wss://localhost:7788/ws?course=${courseId}`;
+```
+
+<br>
+
+Edit the `Question.svelte`, uncomment line 
+
+```bash
+let wsUrl = `wss://local.production/ws?question=${questionId}`;
+```
+
+and comment out line
+
+```bash
+let wsUrl = `wss://localhost:7788/ws?question=${questionId}`;
+```
 
 ### Building images:
 
-### in flyway folder
+Build image in flyway folder
+
+```bash
+cd flyway
 
 minikube image build -t database-migrations -f ./Dockerfile .
 
-### in qa-api folder
+cd ..
+```
 
-minikube image build -t qa-api -f ./Dockerfile.prod .
+<br>
 
-### in llm-api folder
+Build image  in qa-api folder
+
+```bash
+cd qa-api
+
+minikube image build -t qa-api -f ./Dockerfile.kubernetes.prod .
+
+cd ..
+```
+
+<br>
+
+Build image in llm-api folder
+
+```bash
+cd llm-api
 
 minikube image build -t llm-api -f ./Dockerfile .
 
-### in qa-ui folder
+cd ..
+```
 
-minikube image build -t qa-ui -f ./Dockerfile.prod .
+<br>
 
-### in websocket folder
+Build image in qa-ui folder
 
-minikube image build -t websocket -f ./Dockerfile .
+```bash
+cd qa-ui
 
-### Nginx and Redis
+minikube image build -t qa-ui -f ./Dockerfile.kubernetes.prod .
 
-No need to build custom Docker images for them
+cd ..
+```
 
+<br>
+
+Build image in websocket folder
+
+```bash
+cd websocket
+
+minikube image build -t websocket -f ./Dockerfile.kubernetes.prod .
+
+cd ..
+```
 
 ### Deploying
 
-minikube start --cpus 4 --memory 8192
+Apply database-cluster 
 
-kubectl create namespace production
-
-kubectl delete events --all -n production
-
-
-minikube addons enable ingress
-
-kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.19/releases/cnpg-1.19.1.yaml
-
-kubectl apply -f kubernetes/components.yaml
-
-kubectl get pods -n kube-system
-
-
+```bash
 kubectl apply -f kubernetes/database-cluster.yaml
+```
 
-kubectl get cluster -n production
+<br>
 
+Get clusters
+
+```bash
+kubectl get cluster -n production --watch
+```
+
+Wait for the database-cluster to be in status `Cluster in healthy state`
+
+<br>
+
+Check database-cluster status
+
+```bash
 kubectl cnpg status database-cluster -n production
+```
 
-minikube image build -t database-migrations -f ./Dockerfile .
+<br>
 
+
+Apply database-migration
+
+```bash
 kubectl apply -f kubernetes/database-migration-job.yaml
+```
 
+<br>
+
+
+Get production pods
+
+```bash
 kubectl get pods -n production --watch
+```
 
-kubectl describe pod database-cluster-1 -n production
+Wait for the database-migration to be in status `Completed`
 
+<br>
+
+
+Check psql is accessible in database-cluster
+
+```bash
 kubectl cnpg psql database-cluster -n production
 
 \c app
 
+\dt
+
+\q
+```
+
+<br>
+
+Apply redis
+
+```bash
 kubectl apply -f kubernetes/redis-deployment.yaml
 kubectl apply -f kubernetes/redis-service.yaml
+```
 
-minikube image build -t llm-api -f ./Dockerfile .
+<br>
 
-kubectl apply -f kubernetes/llm-api-deployment-hpa.yaml
+Apply llm-api
+
+```bash
 kubectl apply -f kubernetes/llm-api-deployment.yaml
 kubectl apply -f kubernetes/llm-api-service.yaml
+```
 
-minikube image build -t qa-api -f ./Dockerfile.prod .
+<br>
 
+Apply qa-api
+
+```bash
 kubectl apply -f kubernetes/qa-api-app.yaml
+```
 
-minikube service qa-api-service --url -n production
+<br>
 
-minikube image build -t qa-ui -f ./Dockerfile.prod .
+Apply qa-ui
 
+```bash
 kubectl apply -f kubernetes/qa-ui-deployment.yaml
 kubectl apply -f kubernetes/qa-ui-service.yaml
+```
 
-minikube image build -t websocket -f ./Dockerfile.prod .
+<br>
 
+Apply websocket
+
+```bash
 kubectl apply -f kubernetes/websocket-deployment.yaml
 kubectl apply -f kubernetes/websocket-service.yaml
+```
 
-    
-kubectl get all -n production
+<br>
 
+Apply Ingress
+
+```bash
 kubectl apply -f kubernetes/ingress.yaml
+```
 
-kubectl get ingress -n production --watch
+<br>
 
-### Redeploy
+Get all in `production` namespace
 
+```bash
+kubectl get all -n production
+```
+
+<br>
+
+Access app in `http://local.production/`
+
+### Redeployment
+
+```bash
 kubectl rollout restart deployment/websocket-deployment -n production
 kubectl rollout restart deployment/qa-api-deployment -n production
 kubectl rollout restart deployment/qa-ui-deployment -n production
-
-kubectl rollout restart cluster/database-cluster -n production
-
-kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx
-
-kubectl delete deployment ingress-nginx-controller -n ingress-nginx
-kubectl delete ingressclass nginx
-
-### Get pods
-
-kubectl get pods
-
-kubectl get pods -n ingress-nginx
+```
 
 ### Get logs
 
-kubectl logs 
+```bash
+kubectl logs <id> -n production
+```
 
-kubectl logs ingress-nginx-controller-6d498b67d9-6r58m -n ingress-nginx
+### Deleting everything
 
-### Describe pod
+```bash
+minikube delete --all
+```
 
-kubectl describe pod
+### Deleting single deployments/services
 
-
-### Deleting the service and the deployment
-
+```bash
+kubectl delete -f kubernetes/components.yaml
 kubectl delete -f kubernetes/database-cluster.yaml
 kubectl delete -f kubernetes/database-migration-job.yaml
-kubectl delete -f kubernetes/redis-deployment.yaml
-kubectl delete -f kubernetes/redis-service.yaml
-kubectl delete -f kubernetes/llm-api-deployment-hpa.yaml
+kubectl delete -f kubernetes/ingress.yaml
 kubectl delete -f kubernetes/llm-api-deployment.yaml
 kubectl delete -f kubernetes/llm-api-service.yaml
+kubectl delete -f kubernetes/production-namespace.yaml
 kubectl delete -f kubernetes/qa-api-app.yaml
-
 kubectl delete -f kubernetes/qa-ui-deployment.yaml
 kubectl delete -f kubernetes/qa-ui-service.yaml
+kubectl delete -f kubernetes/redis-deployment.yaml
+kubectl delete -f kubernetes/redis-service.yaml
 kubectl delete -f kubernetes/websocket-deployment.yaml
 kubectl delete -f kubernetes/websocket-service.yaml
-kubectl delete -f kubernetes/nginx-app.yaml
-kubectl delete -f kubernetes/nginx-ingress.yaml
+```
 
-### Get deployments
+## Adding Prometheus and Grafana to monitor application
 
-kubectl get deployments
+Install `Helm` from [here](https://helm.sh/docs/intro/install/)
 
-### Delete deployment
+Add repos Prometheus-operator
 
-kubectl delete deployment <name>
-
-### Detele pod 
-
-kubectl delete pod <name-id>
-
-### Check status
-
-kubectl cnpg status database-cluster
-
-### Describing secrets
-
-kubectl describe secret database-cluster-app
-
-### PSQL
-
-kubectl cnpg psql database-cluster
-
-### Getting the url
-
-minikube service nginx-app --url
-
-monitoring
-
-
-
-EDITABLE:
-
-qa-api/app.js
-
-websocket/app.js
-
-astro.config.mjs
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+helm repo update
+```

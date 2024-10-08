@@ -7,6 +7,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
 
+ENV KUBERNETES=true
+
 # Copy the app files and build the app
 COPY . .
 RUN npm run build
@@ -31,4 +33,5 @@ EXPOSE 3000
 
 # Start the Node.js server
 CMD ["node", "./dist/server/entry.mjs"]
+
 

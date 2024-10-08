@@ -20,7 +20,15 @@
   let manualClose = false; // Track if the WebSocket was closed manually
   
   const setupWebSocket = () => {
-    const wsUrl = `wss://local.production/ws?question=${questionId}`;
+    // For some reason process.env.KUBERNETES is not recognized so we can't add conditional logic here
+    
+    // Use for docker compose
+    // let wsUrl = `wss://localhost:7788/ws?question=${questionId}`;
+    
+    // Use for kubernetes
+    let wsUrl = `wss://local.production/ws?question=${questionId}`;
+    
+
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

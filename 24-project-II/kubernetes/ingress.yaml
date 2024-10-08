@@ -1,21 +1,16 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress
+  name: ingress-qa-ui
   namespace: production
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/add-base-url: "true"  # Add base URL
+    nginx.ingress.kubernetes.io/add-base-url: "true" 
 spec:
-  tls:
-    - secretName: local-production-tls
-      hosts:
-        - local.production
   rules:
     - host: local.production
       http:
         paths:
-          # Static content for frontend/UI
           - path: /
             pathType: Prefix
             backend:
@@ -28,16 +23,12 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress-api
+  name: ingress-qa-api
   namespace: production
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
-    nginx.ingress.kubernetes.io/add-base-url: "true"  # Add base URL
+    nginx.ingress.kubernetes.io/add-base-url: "true"  
 spec:
-  tls:
-    - secretName: local-production-tls
-      hosts:
-        - local.production
   rules:
     - host: local.production
       http:
@@ -50,7 +41,6 @@ spec:
                 port:
                   number: 7777
 
-
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -59,50 +49,20 @@ metadata:
   namespace: production
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/add-base-url: "true"  # Add base URL
+    nginx.ingress.kubernetes.io/add-base-url: "true" 
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: '3600'
     nginx.ingress.kubernetes.io/websocket-services: "websocket-service"
 spec:
-  tls:
-    - secretName: local-production-tls
-      hosts:
-        - local.production
-  rules:
-  - host: local.production
-    http:
-      paths:
-      - path: /ws
-        pathType: Prefix
-        backend:
-          service:
-            name: websocket-service
-            port:
-              number: 7788
-
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: ingress-api-llm
-  namespace: production
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/add-base-url: "true"  # Add base URL
-spec:
-  tls:
-    - secretName: local-production-tls
-      hosts:
-        - local.production
   rules:
     - host: local.production
       http:
         paths:
-          - path: /
+          - path: /ws
             pathType: Prefix
             backend:
               service:
-                name: llm-api-service
+                name: websocket-service
                 port:
-                  number: 7000
+                  number: 7788
