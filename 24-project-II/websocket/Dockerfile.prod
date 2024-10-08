@@ -11,4 +11,4 @@ COPY . .
 EXPOSE 7788
 
 # Run the WebSocket server
-CMD [ "run", "--unstable", "--allow-all", "app.js" ]
+CMD [ "run", "--unstable", "--allow-net", "--allow-env", "app.js" ]
