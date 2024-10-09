@@ -3,7 +3,7 @@ import svelte from "@astrojs/svelte";
 import tailwind from "@astrojs/tailwind";
 
 // UNCOMMENT NEXT LINE FOR PRODUCTION BUILD AND COMMENT IT OUT FOR DEV BUILD
-import node from "@astrojs/node";
+//import node from "@astrojs/node";
 
 export default defineConfig({
   integrations: [svelte(), tailwind()],
@@ -14,5 +14,5 @@ export default defineConfig({
   output: 'server',
   
   // UNCOMMENT NEXT LINE FOR PRODUCTION BUILD AND COMMENT IT OUT FOR DEV BUILD
-  adapter: node({ mode: 'standalone' }),   // Use Node.js for SSR
+  //adapter: node({ mode: 'standalone' }),   // Use Node.js for SSR
 });

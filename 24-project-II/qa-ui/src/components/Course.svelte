@@ -23,10 +23,10 @@
     // For some reason process.env.KUBERNETES is not recognized so we can't add conditional logic here
 
     // Use for docker compose
-    // let wsUrl = `wss://localhost:7788/ws?course=${courseId}`;
+    let wsUrl = `ws://localhost:7788/ws?course=${courseId}`;
 
     // Use for kubernetes
-    let wsUrl = `wss://local.production/ws?course=${courseId}`;
+    //let wsUrl = `wss://local.production/ws?course=${courseId}`;
     
 
     ws = new WebSocket(wsUrl);
@@ -207,6 +207,11 @@
   <div class="p-4">
     <h1 class="text-2xl font-bold">Error</h1>
     <p class="mt-2 text-gray-700">{errorMessage}</p>
+    <button 
+      on:click={() => errorMessage = ''} 
+      class="mt-4 bg-blue-500 text-white rounded px-4 py-2 hover:bg-blue-600">
+      Back to Course
+    </button>
   </div>
 {:else if course}
   <div class="p-4">

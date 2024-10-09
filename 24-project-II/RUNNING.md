@@ -23,6 +23,23 @@ docker compose run --rm --entrypoint=npx e2e-playwright playwright test
 
 ## Running Instructions for Development Environment with Docker
 
+Navigate to the `qa-api` directory. Edit the `questionsService.js`, uncomment line
+
+```bash
+import { postgres } from "../deps.js";
+const sql = postgres({});
+```
+
+and comment out line
+
+```bash
+import { sql } from "../util/database.js";
+```
+
+Edit the `database.js` and comment out everything in the file.
+
+<br>
+
 Navigate to the `qa-ui` directory and install dependencies:
 
 ```bash
@@ -86,6 +103,23 @@ docker compose up
 ```
 
 ## Running Instructions for Production Environment with Docker
+
+Navigate to the `qa-api` directory. Edit the `questionsService.js`, uncomment line
+
+```bash
+import { postgres } from "../deps.js";
+const sql = postgres({});
+```
+
+and comment out line
+
+```bash
+import { sql } from "../util/database.js";
+```
+
+Edit the `database.js` and comment out everything in the file.
+
+<br>
 
 Navigate to the `qa-ui` directory and install dependencies:
 
@@ -287,6 +321,23 @@ minikube ip
 Add new host `local.production` specifying it with the minikube IP. In Linux/Mac the hosts file is in `/etc/hosts`
 
 ### Modify files:
+
+Navigate to the `qa-api` directory. Edit the `questionsService.js`, comment out lines
+
+```bash
+import { postgres } from "../deps.js";
+const sql = postgres({});
+```
+
+and uncomment line
+
+```bash
+import { sql } from "../util/database.js";
+```
+
+Edit the `database.js` and uncomment everything in the file.
+
+<br>
 
 Navigate to the `qa-ui` directory
 

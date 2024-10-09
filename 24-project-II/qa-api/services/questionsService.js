@@ -1,9 +1,9 @@
 // Use for docker compose
-// import { postgres } from "../deps.js";
-// const sql = postgres({});
+import { postgres } from "../deps.js";
+const sql = postgres({});
 
 // Use for kubernetes
-import { sql } from "../util/database.js";
+// import { sql } from "../util/database.js";
 
 // --- Courses ---
 
