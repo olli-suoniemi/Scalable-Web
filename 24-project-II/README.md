@@ -239,20 +239,6 @@ kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg
 
 <br>
 
-Enable Prometheus operator
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml
-```
-
-If you run into the error The CustomResourceDefinition "prometheuses.monitoring.coreos.com" is invalid: metadata.annotations: Too long: must have at most 262144 bytes, then run the following command:
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml --force-conflicts=true --server-side=true
-```
-
-<br>
-
 Enable metrics-server addon
 
 ```bash
@@ -277,7 +263,7 @@ Get pods
 kubectl get pods -n kube-system
 ```
 
-Verify that metrics-server is running
+Verify that `metrics-server` is running
 
 <br>
 
@@ -571,10 +557,40 @@ kubectl delete -f kubernetes/websocket-service.yaml
 
 Install `Helm` from [here](https://helm.sh/docs/intro/install/)
 
-Add repos Prometheus-operator
+Add repos
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo add stable https://kubernetes-charts.storage.googleapis.com/
 helm repo update
 ```
+
+Install chart
+
+```bash
+helm install prometheus prometheus-community/kube-prometheus-stack
+```
+
+Port-forward grafana deployment to port 3000
+
+```bash
+kubectl port-forward deployment/prometheus-grafana 3000
+```
+
+Access Grafana UI in `http://localhost:3000/`. Admin credentials are username:`admin` and password:`prom-operator`
+
+<br>
+
+Get pods
+
+```bash
+kubectl get pod
+```
+
+Port-forward prometheus deployment to port 9090
+
+```bash
+kubectl port-forward prometheus-prometheus-kube-prometheus-prometheus-0 9090
+```
+
+Access Prometheus UI in `http://localhost:9090/`.

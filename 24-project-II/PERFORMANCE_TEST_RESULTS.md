@@ -612,10 +612,106 @@ default ✓ [======================================] 10 VUs  10s
 running (10.0s), 00/10 VUs, 2639 complete and 0 interrupted iterations
 default ✓ [======================================] 10 VUs  10s
 
-### Conclusion
+
+## K6 performance tests with Kubernetes configuration with indexes and caching in place
+
+### Getting questions:
+
+        script: get-questions-kubernetes.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 40s max duration (incl. graceful stop):
+              * default: 10 looping VUs for 10s (gracefulStop: 30s)
+
+
+     data_received..................: 13 MB  1.3 MB/s
+     data_sent......................: 4.0 MB 399 kB/s
+     http_req_blocked...............: avg=3.03µs  min=691ns    med=1.33µs  max=3.75ms   p(90)=2.09µs  p(95)=2.55µs 
+     http_req_connecting............: avg=542ns   min=0s       med=0s      max=3.31ms   p(90)=0s      p(95)=0s     
+     http_req_duration..............: avg=2.59ms  min=369.58µs med=2.21ms  max=289.03ms p(90)=3.72ms  p(95)=4.49ms 
+       { expected_response:true }...: avg=2.59ms  min=369.58µs med=2.21ms  max=289.03ms p(90)=3.72ms  p(95)=4.49ms 
+     http_req_failed................: 0.00%  ✓ 0           ✗ 37613
+     http_req_receiving.............: avg=33.77µs min=10.63µs  med=23.52µs max=2.91ms   p(90)=46.25µs p(95)=72.14µs
+     http_req_sending...............: avg=11.62µs min=3.63µs   med=6.24µs  max=4.19ms   p(90)=11.18µs p(95)=21.52µs
+     http_req_tls_handshaking.......: avg=0s      min=0s       med=0s      max=0s       p(90)=0s      p(95)=0s     
+     http_req_waiting...............: avg=2.54ms  min=352.03µs med=2.17ms  max=288.25ms p(90)=3.66ms  p(95)=4.41ms 
+     http_reqs......................: 37613  3760.789235/s
+     iteration_duration.............: avg=2.64ms  min=392.78µs med=2.25ms  max=291.91ms p(90)=3.79ms  p(95)=4.57ms 
+     iterations.....................: 37613  3760.789235/s
+     vus............................: 10     min=10        max=10 
+     vus_max........................: 10     min=10        max=10 
+
+
+running (10.0s), 00/10 VUs, 37613 complete and 0 interrupted iterations
+default ✓ [======================================] 10 VUs  10s
+
+### Getting courses:
+
+        script: get-courses-kubernetes.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 40s max duration (incl. graceful stop):
+              * default: 10 looping VUs for 10s (gracefulStop: 30s)
+
+
+     data_received..................: 21 MB  2.1 MB/s
+     data_sent......................: 3.7 MB 365 kB/s
+     http_req_blocked...............: avg=2.6µs   min=681ns    med=1.31µs  max=2.04ms  p(90)=2.1µs   p(95)=2.54µs 
+     http_req_connecting............: avg=266ns   min=0s       med=0s      max=1.35ms  p(90)=0s      p(95)=0s     
+     http_req_duration..............: avg=2.48ms  min=379.68µs med=2.19ms  max=40.36ms p(90)=3.65ms  p(95)=4.32ms 
+       { expected_response:true }...: avg=2.48ms  min=379.68µs med=2.19ms  max=40.36ms p(90)=3.65ms  p(95)=4.32ms 
+     http_req_failed................: 0.00%  ✓ 0           ✗ 39289
+     http_req_receiving.............: avg=35.31µs min=9.91µs   med=22.95µs max=7.96ms  p(90)=46.26µs p(95)=76.33µs
+     http_req_sending...............: avg=12.03µs min=3.46µs   med=6.06µs  max=5.35ms  p(90)=10.74µs p(95)=20.15µs
+     http_req_tls_handshaking.......: avg=0s      min=0s       med=0s      max=0s      p(90)=0s      p(95)=0s     
+     http_req_waiting...............: avg=2.43ms  min=350.14µs med=2.15ms  max=40.22ms p(90)=3.59ms  p(95)=4.25ms 
+     http_reqs......................: 39289  3921.837938/s
+     iteration_duration.............: avg=2.53ms  min=408.32µs med=2.23ms  max=40.43ms p(90)=3.72ms  p(95)=4.4ms  
+     iterations.....................: 39289  3921.837938/s
+     vus............................: 10     min=10        max=10 
+     vus_max........................: 10     min=10        max=10 
+
+
+running (10.0s), 00/10 VUs, 39289 complete and 0 interrupted iterations
+default ✓ [======================================] 10 VUs  10s
+
+
+### Posting questions:
+
+        script: post-questions-kubernetes.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 10 max VUs, 40s max duration (incl. graceful stop):
+              * default: 10 looping VUs for 10s (gracefulStop: 30s)
+
+
+     data_received..................: 477 kB 47 kB/s
+     data_sent......................: 539 kB 54 kB/s
+     http_req_blocked...............: avg=5.49µs  min=853ns   med=2.12µs  max=2.15ms   p(90)=3.24µs   p(95)=4.1µs   
+     http_req_connecting............: avg=1.79µs  min=0s      med=0s      max=2.11ms   p(90)=0s       p(95)=0s      
+     http_req_duration..............: avg=37.4ms  min=8.71ms  med=33.28ms max=389.34ms p(90)=54.57ms  p(95)=65ms    
+       { expected_response:true }...: avg=37.4ms  min=8.71ms  med=33.28ms max=389.34ms p(90)=54.57ms  p(95)=65ms    
+     http_req_failed................: 0.00%  ✓ 0          ✗ 2670
+     http_req_receiving.............: avg=69.02µs min=11.45µs med=45.06µs max=2.66ms   p(90)=112.48µs p(95)=188.45µs
+     http_req_sending...............: avg=42.36µs min=5.24µs  med=13.65µs max=7ms      p(90)=68.2µs   p(95)=123.89µs
+     http_req_tls_handshaking.......: avg=0s      min=0s      med=0s      max=0s       p(90)=0s       p(95)=0s      
+     http_req_waiting...............: avg=37.28ms min=8.61ms  med=33.17ms max=389.26ms p(90)=54.52ms  p(95)=64.94ms 
+     http_reqs......................: 2670   265.397843/s
+     iteration_duration.............: avg=37.61ms min=8.9ms   med=33.48ms max=389.85ms p(90)=54.99ms  p(95)=65.17ms 
+     iterations.....................: 2670   265.397843/s
+     vus............................: 10     min=10       max=10
+     vus_max........................: 10     min=10       max=10
+
+
+running (10.1s), 00/10 VUs, 2670 complete and 0 interrupted iterations
+default ✓ [======================================] 10 VUs  10s
+
+## Conclusion
 
 Overall, while the system performs well under low load, the increase in replicas, particularly in write-heavy scenarios like posting questions, resulted in notable increases in response times and reduced throughput.
 
 It seems that the database was a bottleneck since increasing the replicas of the API and the LLM-API didn't increase the system performance. After adding the indexes the performance was much better. Getting questions and answers performed much better after adding indexes. Also adding questions performed better. This is due to that that the API has to do few SELECT queries for checking purposes before the insertions. The increase in performance is due to to performance improvements in the SELECT queries.
 
 After adding database indexes, caching was added to the application. Everything was cached and cache is set to flush when there is added a new question or answer to the database or a question or answer is upvoted. There was slight improvement in performance getting courses. Also slight improvement was in getting questions. There was a slight decrease in performance in adding questions after adding caching. This is expected as adding new question to the database requires flushing the cache so it generates some extra work.
+
+In Kubernetes setup, the performance of fetching courses and questions improved dramatically. The perfomance of posting questions did not improve considerable but remained almost at the same level with just a slight improvement.
