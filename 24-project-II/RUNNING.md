@@ -69,7 +69,7 @@ let wsUrl = `wss://local.production/ws?course=${courseId}`;
 and uncomment line
 
 ```bash
-let wsUrl = `wss://localhost:7788/ws?course=${courseId}`;
+let wsUrl = `ws://localhost:7788/ws?course=${courseId}`;
 ```
 
 <br>
@@ -83,7 +83,7 @@ let wsUrl = `wss://local.production/ws?question=${questionId}`;
 and uncomment line
 
 ```bash
-let wsUrl = `wss://localhost:7788/ws?question=${questionId}`;
+let wsUrl = `ws://localhost:7788/ws?question=${questionId}`;
 ```
 
 <br>
@@ -150,7 +150,7 @@ let wsUrl = `wss://local.production/ws?course=${courseId}`;
 and uncomment line
 
 ```bash
-let wsUrl = `wss://localhost:7788/ws?course=${courseId}`;
+let wsUrl = `ws://localhost:7788/ws?course=${courseId}`;
 ```
 
 <br>
@@ -164,7 +164,7 @@ let wsUrl = `wss://local.production/ws?question=${questionId}`;
 and uncomment line
 
 ```bash
-let wsUrl = `wss://localhost:7788/ws?question=${questionId}`;
+let wsUrl = `ws://localhost:7788/ws?question=${questionId}`;
 ```
 
 
@@ -363,7 +363,7 @@ let wsUrl = `wss://local.production/ws?course=${courseId}`;
 and comment out line
 
 ```bash
-let wsUrl = `wss://localhost:7788/ws?course=${courseId}`;
+let wsUrl = `ws://localhost:7788/ws?course=${courseId}`;
 ```
 
 <br>
@@ -377,7 +377,7 @@ let wsUrl = `wss://local.production/ws?question=${questionId}`;
 and comment out line
 
 ```bash
-let wsUrl = `wss://localhost:7788/ws?question=${questionId}`;
+let wsUrl = `ws://localhost:7788/ws?question=${questionId}`;
 ```
 
 ### Building images:
