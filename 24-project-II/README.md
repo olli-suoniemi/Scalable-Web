@@ -4,6 +4,29 @@ Contains an endpoint for a large language model (a small model with poor quality
 
 Starting the application up for the first time may take a while, as it also downloads the (small) large language model (approx. 250 megabytes) and packages it into an image.
 
+For local testing, create project.env file to the root of the project with the following values:
+
+```bash
+# Database configuration for PostgreSQL
+POSTGRES_USER=username
+POSTGRES_PASSWORD=password
+POSTGRES_DB=database
+
+# Database configuration for Flyway (used for database migrations)
+FLYWAY_USER=username
+FLYWAY_PASSWORD=password
+FLYWAY_URL=jdbc:postgresql://database-server-dab-p2-02a82e73-0e35-4a21-8d6e-d6b9aa3a4c3a:5432/database
+
+# Database configuration for PostgreSQL driver
+PGUSER=username
+PGPASSWORD=password
+PGHOST=database-server-dab-p2-02a82e73-0e35-4a21-8d6e-d6b9aa3a4c3a
+PGPORT=5432
+PGDATABASE=database
+
+# Deno cache location (avoid reloading depedencies over and over)
+DENO_DIR=/app-cache
+```
 
 ## Testing Instructions
 
